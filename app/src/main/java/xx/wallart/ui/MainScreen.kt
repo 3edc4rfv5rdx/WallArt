@@ -23,6 +23,11 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Icon
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.AddPhotoAlternate
@@ -91,7 +96,10 @@ fun MainScreen(vm: WallViewModel, onExit: () -> Unit, onAbout: () -> Unit) {
     }
 }
 
-/** The height of the row under the wall that holds Save draft. */
+/** How much of the window shows through the calibration's hint over the photo. */
+private const val HINT_ALPHA = 0.9f
+
+/** The height of the row under the wall: Save draft, or the calibration's size. */
 private val BOTTOM_PANEL_HEIGHT = 64.dp
 
 /** What the photo being picked is for. */
@@ -199,22 +207,40 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
                 Button(onClick = { choosePhoto(Pick.WALL) }) { Text(stringResource(R.string.choose_wall_photo)) }
             }
             if (state.busy) CircularProgressIndicator()
+            // What to do, over the photo rather than under it: the room under it stays one height.
+            if (state.calibrating != null) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = HINT_ALPHA),
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(8.dp),
+                ) {
+                    Text(
+                        stringResource(R.string.calibrate_hint),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    )
+                }
+            }
         }
-        val edit = state.calibrating
-        if (edit != null) {
-            CalibrationBar(
-                edit,
-                onWidth = vm::setWidthText,
-                onHeight = vm::setHeightText,
-                onCancel = vm::cancelCalibration,
-                onDone = vm::applyCalibration,
-            )
-        } else if (state.hasWork) {
-            // Nothing else wants the room under the wall: the work is put aside as the draft from here.
+        // The room under the wall is kept the one height whatever is in it, once there is a wall: a panel
+        // that came and went, or grew, would shrink and grow the photo under the finger.
+        if (state.image != null || state.hasWork) {
             Box(Modifier.fillMaxWidth().height(BOTTOM_PANEL_HEIGHT), contentAlignment = Alignment.Center) {
-                // Off while the draft holds this very wall: nothing to save.
-                Button(onClick = vm::saveDraft, enabled = !state.busy && state.wall != state.draft) {
-                    Text(stringResource(R.string.save_draft))
+                val edit = state.calibrating
+                if (edit != null) {
+                    CalibrationBar(
+                        edit,
+                        onWidth = vm::setWidthText,
+                        onHeight = vm::setHeightText,
+                        onCancel = vm::cancelCalibration,
+                        onDone = vm::applyCalibration,
+                    )
+                } else {
+                    // Nothing else wants the room: the work is put aside as the draft from here.
+                    // Off while the draft holds this very wall: nothing to save.
+                    Button(onClick = vm::saveDraft, enabled = !state.busy && state.hasWork && state.wall != state.draft) {
+                        Text(stringResource(R.string.save_draft))
+                    }
                 }
             }
         }
@@ -398,7 +424,7 @@ private fun TopBar(
     }
 }
 
-/** What to do, the rectangle's size in centimetres, and the way out either way. */
+/** The rectangle's size in centimetres and the way out either way, in one row: the panel under the wall's height. */
 @Composable
 private fun CalibrationBar(
     edit: CalibrationEdit,
@@ -409,33 +435,29 @@ private fun CalibrationBar(
 ) {
     val cm = stringResource(R.string.cm)
     val numbers = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-    Column(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(stringResource(R.string.calibrate_hint), style = MaterialTheme.typography.bodyLarge)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(
-                value = edit.widthText,
-                onValueChange = onWidth,
-                label = { Text("${stringResource(R.string.width)}, $cm") },
-                singleLine = true,
-                keyboardOptions = numbers,
-                modifier = Modifier.weight(1f),
-            )
-            Text("×", style = MaterialTheme.typography.titleLarge)
-            OutlinedTextField(
-                value = edit.heightText,
-                onValueChange = onHeight,
-                label = { Text("${stringResource(R.string.height)}, $cm") },
-                singleLine = true,
-                keyboardOptions = numbers,
-                modifier = Modifier.weight(1f),
-            )
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-            DialogDismissButton(stringResource(R.string.cancel), onCancel)
-            DialogButton(stringResource(R.string.done), enabled = edit.result != null, onClick = onDone)
-        }
+        OutlinedTextField(
+            value = edit.widthText,
+            onValueChange = onWidth,
+            label = { Text("${stringResource(R.string.width)}, $cm", maxLines = 1) },
+            singleLine = true,
+            keyboardOptions = numbers,
+            modifier = Modifier.weight(1f),
+        )
+        Text("×", style = MaterialTheme.typography.titleLarge)
+        OutlinedTextField(
+            value = edit.heightText,
+            onValueChange = onHeight,
+            label = { Text("${stringResource(R.string.height)}, $cm", maxLines = 1) },
+            singleLine = true,
+            keyboardOptions = numbers,
+            modifier = Modifier.weight(1f),
+        )
+        FilledIconButton(onClick = onCancel) { Icon(Icons.Filled.Close, stringResource(R.string.cancel)) }
+        FilledIconButton(onClick = onDone, enabled = edit.result != null) { Icon(Icons.Filled.Check, stringResource(R.string.done)) }
     }
 }
