@@ -7,7 +7,8 @@ data class Pt(val x: Double, val y: Double)
 
 /**
  * A plane-to-plane projection: what a flat wall goes through on its way into
- * a photo. [m] is the 3×3 matrix row by row, its last entry 1.
+ * a photo. [m] is the 3×3 matrix row by row, scaled so that w is positive
+ * for the points in front of the camera.
  */
 class Homography private constructor(private val m: DoubleArray) {
 
@@ -16,6 +17,24 @@ class Homography private constructor(private val m: DoubleArray) {
         val w = m[6] * p.x + m[7] * p.y + m[8]
         if (w <= EPSILON) return null
         return Pt((m[0] * p.x + m[1] * p.y + m[2]) / w, (m[3] * p.x + m[4] * p.y + m[5]) / w)
+    }
+
+    /** The projection back; null when this one flattens the plane onto a line. */
+    fun inverse(): Homography? {
+        val (a, b, c) = Triple(m[0], m[1], m[2])
+        val (d, e, f) = Triple(m[3], m[4], m[5])
+        val (g, h, i) = Triple(m[6], m[7], m[8])
+        val det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
+        if (abs(det) < EPSILON) return null
+        // The adjugate: the inverse up to a scale, which a projection does not mind.
+        val adj = doubleArrayOf(
+            e * i - f * h, c * h - b * i, b * f - c * e,
+            f * g - d * i, a * i - c * g, c * d - a * f,
+            d * h - e * g, b * g - a * h, a * e - b * d,
+        )
+        // Scaled by 1/det, not by its last entry: that keeps w positive for the
+        // points in front, which map() counts on, whatever the sign of det.
+        return Homography(DoubleArray(9) { adj[it] / det })
     }
 
     companion object {
@@ -71,4 +90,11 @@ fun isConvexClockwise(corners: List<Pt>): Boolean {
         val cross = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x)
         cross > 0
     }
+}
+
+/** Whether [p] lies inside the convex [corners], clockwise on screen (y down), or on their edge. */
+fun insideConvex(p: Pt, corners: List<Pt>): Boolean = corners.indices.all { i ->
+    val a = corners[i]
+    val b = corners[(i + 1) % corners.size]
+    (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x) >= 0
 }

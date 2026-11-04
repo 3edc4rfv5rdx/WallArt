@@ -24,4 +24,16 @@
     <string name="cm">cm</string>
     <string name="done">Done</string>
     <string name="photo_unreadable">The photo could not be read</string>
+    <string name="add_picture">Add picture</string>
+    <string name="picture">Picture</string>
+    <string name="artwork_photo">Artwork photo</string>
+    <string name="size">Size</string>
+    <string name="frame_color">Frame colour</string>
+    <string name="frame_photo">Frame photo</string>
+    <string name="frame_width">Frame width</string>
+    <string name="bring_forward">Bring forward</string>
+    <string name="send_backward">Send backward</string>
+    <string name="remove_picture">Remove picture</string>
+    <string name="shadow">Shadow</string>
+    <string name="calibrate_first">Calibrate the wall first</string>
 </resources>

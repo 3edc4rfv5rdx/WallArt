@@ -28,6 +28,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -197,11 +198,12 @@ fun AppMenu(expanded: Boolean, onDismissRequest: () -> Unit, content: @Composabl
     )
 }
 
-/** One line of an [AppMenu], in the size every menu here uses. */
+/** One line of an [AppMenu], in the size every menu here uses; with a tick after it when it is a [checked] switch. */
 @Composable
-fun AppMenuItem(text: String, enabled: Boolean = true, onClick: () -> Unit) {
+fun AppMenuItem(text: String, enabled: Boolean = true, checked: Boolean? = null, onClick: () -> Unit) {
     DropdownMenuItem(
         text = { Text(text, style = MaterialTheme.typography.titleLarge) },
+        trailingIcon = checked?.let { on -> { Checkbox(checked = on, onCheckedChange = null) } },
         enabled = enabled,
         onClick = onClick,
     )

@@ -2,6 +2,7 @@ package xx.wallart.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -19,15 +20,20 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
 import xx.wallart.CalibrationEdit
+import xx.wallart.CmRect
+import xx.wallart.EditorState
+import xx.wallart.Homography
 import xx.wallart.Pt
 import xx.wallart.calibrationHomography
 import xx.wallart.gridStep
+import xx.wallart.insideConvex
 import xx.wallart.parseCm
 import kotlin.math.floor
 import kotlin.math.min
@@ -44,74 +50,192 @@ private const val LOUPE_ZOOM = 3f
 private const val GRID_PARTS_WITHOUT_SIZE = 4.0
 
 /**
- * The wall's photo fitted into the box and, while [calibrating], the
- * rectangle being placed on it: its corners dragged by a finger anywhere
- * near them, a grid across it that shows whether the perspective is right,
- * and a loupe over the corner being dragged, which the finger hides.
+ * The wall's photo fitted into the box with the pictures on it, and either
+ * the calibration under way or the pictures to tap and drag.
+ *
+ * While calibrating: the rectangle being placed, its corners dragged by a
+ * finger anywhere near them, a grid across it that shows whether the
+ * perspective is right, a loupe over the corner being dragged, which the
+ * finger hides, and the pictures as the calibration would place them.
+ *
+ * Otherwise: a tap selects the picture under it, or none; a drag moves the
+ * picture it starts on across the wall, in the wall's centimetres, so it
+ * shrinks as it goes further off.
  */
 @Composable
 fun WallCanvas(
+    state: EditorState,
     image: ImageBitmap,
-    calibrating: CalibrationEdit?,
     onMoveCorner: (Int, Pt) -> Unit,
+    onSelect: (Long?) -> Unit,
+    onMovePicture: (Long, Double, Double) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val accent = MaterialTheme.colorScheme.primary
     val error = MaterialTheme.colorScheme.error
+    val calibrating = state.calibrating
     var dragged by remember { mutableIntStateOf(-1) }
-    val edit by rememberUpdatedState(calibrating)
-    val move by rememberUpdatedState(onMoveCorner)
+    val current by rememberUpdatedState(state)
+    val moveCorner by rememberUpdatedState(onMoveCorner)
+    val select by rememberUpdatedState(onSelect)
+    val movePicture by rememberUpdatedState(onMovePicture)
+    val painter = remember { PicturePainter() }
 
-    Canvas(
-        modifier.pointerInput(calibrating != null, image) {
-            if (calibrating == null) return@pointerInput
-            // Where the corner is meant to be, not where the finger is: the finger starts off the corner, and the
-            // corner is moved by as much as the finger is, so it never jumps under it.
-            var at = Pt(0.0, 0.0)
-            detectDragGestures(
-                onDragStart = start@{ down ->
-                    val corners = edit?.corners ?: return@start
-                    val box = fitImage(image, size.toSize())
-                    val reach = CORNER_REACH.toPx()
-                    val nearest = corners.indices.minBy { (box.toScreen(corners[it]) - down).getDistance() }
-                    if ((box.toScreen(corners[nearest]) - down).getDistance() <= reach) {
-                        dragged = nearest
-                        at = corners[nearest]
-                    }
-                },
-                onDragEnd = { dragged = -1 },
-                onDragCancel = { dragged = -1 },
-                onDrag = drag@{ change, delta ->
-                    if (dragged < 0) return@drag
-                    change.consume()
-                    val box = fitImage(image, size.toSize())
-                    at = Pt(at.x + delta.x / box.width, at.y + delta.y / box.height)
-                    move(dragged, at)
-                },
-            )
-        },
-    ) {
+    val gestures = if (calibrating != null) {
+        Modifier.pointerInput(image) {
+            dragCorners(image, { current.calibrating?.corners }, { dragged = it }) { index, to -> moveCorner(index, to) }
+        }
+    } else {
+        Modifier
+            .pointerInput(image) {
+                detectTapGestures { down -> select(pictureAt(current, image, size.toSize(), down)) }
+            }
+            .pointerInput(image) {
+                dragPictures(image, { current }, select) { id, left, top -> movePicture(id, left, top) }
+            }
+    }
+
+    Canvas(modifier.then(gestures)) {
         val box = fitImage(image, size)
         drawPhoto(image, box)
-        val current = calibrating ?: return@Canvas
-        val corners = current.corners.map(box::toScreen)
-        // The grid needs a shape only: until both sides are typed in, it is drawn as a square's.
-        val width = parseCm(current.widthText)
-        val height = parseCm(current.heightText)
-        val gridWidth = if (width != null && height != null) width else GRID_PARTS_WITHOUT_SIZE
-        val gridHeight = if (width != null && height != null) height else GRID_PARTS_WITHOUT_SIZE
-        val homography = calibrationHomography(current.corners, gridWidth, gridHeight)
-        val color = if (homography == null) error else accent
-        if (homography != null) drawGrid(gridWidth, gridHeight, box) { homography.map(it) }
-        drawQuad(corners, color)
-        corners.forEach { drawCorner(it, color) }
-        if (dragged >= 0) drawLoupe(image, box, corners, dragged, color)
+        // While calibrating, the pictures move with the corners: the calibration as it would be, once it is one.
+        val homography = if (calibrating != null) {
+            calibrating.result?.wallToPhoto()
+        } else {
+            state.wall.calibration?.wallToPhoto()
+        }
+        if (homography != null) {
+            val selected = if (calibrating == null) state.selected else null
+            painter.draw(this, state, box, homography, selected, accent)
+        }
+        if (calibrating != null) drawCalibration(calibrating, image, box, dragged, accent, error)
     }
 }
 
+/** The calibration under way over the photo: grid, rectangle, corners, and the loupe while a corner is dragged. */
+private fun DrawScope.drawCalibration(
+    edit: CalibrationEdit,
+    image: ImageBitmap,
+    box: ImageBox,
+    dragged: Int,
+    accent: Color,
+    error: Color,
+) {
+    val corners = edit.corners.map(box::toScreen)
+    // The grid needs a shape only: until both sides are typed in, it is drawn as a square's.
+    val width = parseCm(edit.widthText)
+    val height = parseCm(edit.heightText)
+    val gridWidth = if (width != null && height != null) width else GRID_PARTS_WITHOUT_SIZE
+    val gridHeight = if (width != null && height != null) height else GRID_PARTS_WITHOUT_SIZE
+    val homography = calibrationHomography(edit.corners, gridWidth, gridHeight)
+    val color = if (homography == null) error else accent
+    if (homography != null) drawGrid(gridWidth, gridHeight, box) { homography.map(it) }
+    drawQuad(corners, color)
+    corners.forEach { drawCorner(it, color) }
+    if (dragged >= 0) drawLoupe(image, box, corners, dragged, color)
+}
+
+/**
+ * Drags of the calibration's corners: the one nearest where a drag starts,
+ * if near enough, moved by as much as the finger is — not to where the finger
+ * is, which starts off it, so the corner never jumps under the finger.
+ */
+private suspend fun PointerInputScope.dragCorners(
+    image: ImageBitmap,
+    corners: () -> List<Pt>?,
+    onDragged: (Int) -> Unit,
+    onMove: (Int, Pt) -> Unit,
+) {
+    var index = -1
+    var at = Pt(0.0, 0.0)
+    detectDragGestures(
+        onDragStart = start@{ down ->
+            val now = corners() ?: return@start
+            val box = fitImage(image, size.toSize())
+            val nearest = now.indices.minBy { (box.toScreen(now[it]) - down).getDistance() }
+            if ((box.toScreen(now[nearest]) - down).getDistance() <= CORNER_REACH.toPx()) {
+                index = nearest
+                at = now[nearest]
+                onDragged(index)
+            }
+        },
+        onDragEnd = {
+            index = -1
+            onDragged(-1)
+        },
+        onDragCancel = {
+            index = -1
+            onDragged(-1)
+        },
+        onDrag = drag@{ change, delta ->
+            if (index < 0) return@drag
+            change.consume()
+            val box = fitImage(image, size.toSize())
+            at = Pt(at.x + delta.x / box.width, at.y + delta.y / box.height)
+            onMove(index, at)
+        },
+    )
+}
+
+/**
+ * Drags of the pictures: the one a drag starts on is selected and follows the
+ * finger across the wall — the point under the finger stays under it, the
+ * picture keeping its size in centimetres as it goes.
+ */
+private suspend fun PointerInputScope.dragPictures(
+    image: ImageBitmap,
+    state: () -> EditorState,
+    onSelect: (Long?) -> Unit,
+    onMove: (Long, Double, Double) -> Unit,
+) {
+    var id: Long? = null
+    var grabbed = Pt(0.0, 0.0)
+    var from = CmRect(0.0, 0.0, 0.0, 0.0)
+    detectDragGestures(
+        onDragStart = start@{ down ->
+            val now = state()
+            val hit = pictureAt(now, image, size.toSize(), down) ?: return@start
+            val toWall = photoToWall(now) ?: return@start
+            val point = toWall.map(fitImage(image, size.toSize()).toPhoto(down)) ?: return@start
+            id = hit
+            grabbed = point
+            from = now.wall.pictures.first { it.id == hit }.bounds
+            onSelect(hit)
+        },
+        onDragEnd = { id = null },
+        onDragCancel = { id = null },
+        onDrag = drag@{ change, _ ->
+            val moving = id ?: return@drag
+            change.consume()
+            val toWall = photoToWall(state()) ?: return@drag
+            // A finger past the horizon has no place on the wall: the picture waits where it was.
+            val point = toWall.map(fitImage(image, size.toSize()).toPhoto(change.position)) ?: return@drag
+            onMove(moving, from.left + point.x - grabbed.x, from.top + point.y - grabbed.y)
+        },
+    )
+}
+
+/** The photo's 0..1 coordinates onto the wall's centimetres; null without a calibration. */
+private fun photoToWall(state: EditorState): Homography? = state.wall.calibration?.wallToPhoto()?.inverse()
+
+/** The frontmost picture under [at] on a canvas of [size]; null for none, or without a calibration. */
+private fun pictureAt(state: EditorState, image: ImageBitmap, size: Size, at: Offset): Long? {
+    val homography = state.wall.calibration?.wallToPhoto() ?: return null
+    val box = fitImage(image, size)
+    val point = Pt(at.x.toDouble(), at.y.toDouble())
+    return state.wall.pictures.lastOrNull { picture ->
+        val quad = picture.bounds.corners.map { corner ->
+            val screen = homography.map(corner)?.let(box::toScreen) ?: return@lastOrNull false
+            Pt(screen.x.toDouble(), screen.y.toDouble())
+        }
+        insideConvex(point, quad)
+    }?.id
+}
+
 /** Where the photo lies in the box: fitted whole, centred. */
-private class ImageBox(val left: Float, val top: Float, val width: Float, val height: Float) {
+internal class ImageBox(val left: Float, val top: Float, val width: Float, val height: Float) {
     fun toScreen(p: Pt) = Offset(left + (p.x * width).toFloat(), top + (p.y * height).toFloat())
+    fun toPhoto(o: Offset) = Pt(((o.x - left) / width).toDouble(), ((o.y - top) / height).toDouble())
 }
 
 private fun fitImage(image: ImageBitmap, size: Size): ImageBox {

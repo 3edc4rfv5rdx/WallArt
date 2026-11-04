@@ -17,6 +17,11 @@ Work in progress: what it is to do is in [docs/SPEC.md](docs/SPEC.md).
   centimetres. That sets the wall's perspective and scale at once. A grid
   across the rectangle shows whether the perspective is right, and a loupe
   shows the corner under the finger.
+- **Pictures**: an artwork in a frame, as many as wanted, drawn in the
+  wall's perspective and true to size. Tap one to select it, drag it across
+  the wall. The pencil sets its artwork, its outer size and frame width in
+  centimetres, a frame colour or a photo of a frame, and its place in the
+  stack. Shadow in the ⋮ menu lets them cast a soft shadow.
 
 ## Build
 

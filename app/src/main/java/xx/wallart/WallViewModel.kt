@@ -40,13 +40,25 @@ data class CalibrationEdit(val corners: List<Pt>, val widthText: String, val hei
     }
 }
 
-/** Everything the editor shows. [image] is the wall's photo as shown; [calibrating] the calibration under way, if one is. */
+/** Which of a picture's photos a pick is for. */
+enum class PhotoSlot { ART, FRAME }
+
+/**
+ * Everything the editor shows. [image] is the wall's photo as shown,
+ * [photos] each picture's photos as shown by the name the picture keeps them
+ * by; [calibrating] the calibration under way, if one is; [selected] the
+ * picture the tools work on.
+ */
 data class EditorState(
     val wall: Wall = Wall(),
     val image: ImageBitmap? = null,
+    val photos: Map<String, ImageBitmap> = emptyMap(),
     val calibrating: CalibrationEdit? = null,
+    val selected: Long? = null,
     val busy: Boolean = false,
-)
+) {
+    val selectedPicture: Picture? get() = wall.pictures.firstOrNull { it.id == selected }
+}
 
 class WallViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -60,35 +72,102 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * [uri] as the wall's photo. A new photo is a new view of the wall, so the
      * old calibration says nothing about it: the calibration starts over, from
-     * the size the last one had.
+     * the size the last one had. The pictures stay where they are on the wall.
      */
-    fun importPhoto(uri: Uri) {
-        if (_state.value.busy) return
-        _state.update { it.copy(busy = true) }
-        viewModelScope.launch {
-            val bitmap = withContext(Dispatchers.IO) {
-                // Throwable, not Exception: a photo too large for memory is just as unreadable.
-                runCatching { WallPhoto.import(getApplication(), uri) }.getOrNull()
-            }
-            if (bitmap == null) {
-                _state.update { it.copy(busy = false) }
-                say(R.string.photo_unreadable)
-                return@launch
-            }
-            _state.update { state ->
-                val old = state.wall.calibration
-                state.copy(
-                    wall = Wall(calibration = null),
-                    image = bitmap.asImageBitmap(),
-                    calibrating = CalibrationEdit.from(old).copy(corners = INITIAL_CORNERS),
-                    busy = false,
-                )
-            }
+    fun importPhoto(uri: Uri) = importing({ Photos.importWall(getApplication(), uri) }) { state, bitmap ->
+        val old = state.wall.calibration
+        state.copy(
+            wall = state.wall.copy(calibration = null),
+            image = bitmap.asImageBitmap(),
+            calibrating = CalibrationEdit.from(old).copy(corners = INITIAL_CORNERS),
+            selected = null,
+        )
+    }
+
+    /**
+     * A new picture round the artwork at [uri], in the middle of the photo,
+     * its height following the artwork's shape; selected, to be worked on.
+     */
+    fun addPicture(uri: Uri) = importing({ Photos.importPicturePhoto(getApplication(), uri) }) { state, (name, bitmap) ->
+        val calibration = state.wall.calibration ?: return@importing state
+        val id = state.wall.nextId()
+        val picture = newPicture(id, photoCentreOnWall(calibration), bitmap.height.toDouble() / bitmap.width, name)
+        state.copy(
+            wall = state.wall.copy(pictures = state.wall.pictures + picture),
+            photos = state.photos + (name to bitmap.asImageBitmap()),
+            selected = id,
+        )
+    }
+
+    /** [uri] as the [slot] photo of the selected picture; its size stays, the artwork cropped to it. */
+    fun setPicturePhoto(slot: PhotoSlot, uri: Uri) {
+        val id = _state.value.selected ?: return
+        importing({ Photos.importPicturePhoto(getApplication(), uri) }) { state, (name, bitmap) ->
+            state.copy(
+                wall = state.wall.updated(id) {
+                    when (slot) {
+                        PhotoSlot.ART -> it.copy(artPhoto = name)
+                        PhotoSlot.FRAME -> it.copy(framePhoto = name)
+                    }
+                },
+                photos = state.photos + (name to bitmap.asImageBitmap()),
+            )
         }
     }
 
+    /** The selected picture's frame in [color] (ARGB), its frame photo, if any, dropped for it. */
+    fun setFrameColor(color: Int) = updateSelected { it.copy(frameColor = color, framePhoto = null) }
+
+    /** The selected picture [widthCm] × [heightCm] outside, with a [mouldingCm] frame; kept centred where it was. */
+    fun setSize(widthCm: Double, heightCm: Double, mouldingCm: Double) {
+        if (!isPictureSize(widthCm, heightCm, mouldingCm)) return
+        updateSelected {
+            val b = it.bounds
+            val bounds = CmRect(b.left + (b.width - widthCm) / 2, b.top + (b.height - heightCm) / 2, widthCm, heightCm)
+            it.copy(bounds = bounds, mouldingCm = mouldingCm)
+        }
+    }
+
+    /** Picture [id] with its top left corner at [left], [top] on the wall. */
+    fun movePicture(id: Long, left: Double, top: Double) {
+        _state.update { state ->
+            state.copy(wall = state.wall.updated(id) { it.copy(bounds = it.bounds.copy(left = left, top = top)) })
+        }
+    }
+
+    fun select(id: Long?) {
+        _state.update { it.copy(selected = id) }
+    }
+
+    /** The selected picture [by] places to the front (positive) or the back. */
+    fun restackSelected(by: Int) {
+        val id = _state.value.selected ?: return
+        _state.update { it.copy(wall = it.wall.restacked(id, by)) }
+    }
+
+    fun removeSelected() {
+        _state.update { state ->
+            val id = state.selected ?: return@update state
+            state.copy(wall = state.wall.copy(pictures = state.wall.pictures.filterNot { it.id == id }), selected = null)
+        }
+    }
+
+    fun toggleShadow() {
+        _state.update { it.copy(wall = it.wall.copy(shadow = !it.wall.shadow)) }
+    }
+
+    /** Whether the wall still needs calibrating before a picture can go on it; if so, says so and starts it. */
+    fun calibrateFirst(): Boolean {
+        if (_state.value.wall.calibration != null) return false
+        say(R.string.calibrate_first)
+        startCalibration()
+        return true
+    }
+
     fun startCalibration() {
-        _state.update { if (it.image == null) it else it.copy(calibrating = CalibrationEdit.from(it.wall.calibration)) }
+        _state.update {
+            if (it.image == null) it else it.copy(calibrating = CalibrationEdit.from(it.wall.calibration), selected = null)
+        }
     }
 
     /** Corner [index] of the calibration under way moved to [to], kept on the photo. */
@@ -121,7 +200,44 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
         _state.update { it.copy(calibrating = null) }
     }
 
+    private fun updateSelected(change: (Picture) -> Picture) {
+        _state.update { state ->
+            val id = state.selected ?: return@update state
+            state.copy(wall = state.wall.updated(id, change))
+        }
+    }
+
+    /**
+     * [read] a photo in off the main thread, then [apply] it to the state as it
+     * is by then; a photo that cannot be read is said so, and changes nothing.
+     * One at a time: the editor is busy meanwhile.
+     */
+    private fun <T> importing(read: () -> T, apply: (EditorState, T) -> EditorState) {
+        if (_state.value.busy) return
+        _state.update { it.copy(busy = true) }
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                // Throwable, not Exception: a photo too large for memory is just as unreadable.
+                runCatching(read).getOrNull()
+            }
+            if (result == null) {
+                _state.update { it.copy(busy = false) }
+                say(R.string.photo_unreadable)
+            } else {
+                _state.update { apply(it, result).copy(busy = false) }
+            }
+        }
+    }
+
     private fun say(@StringRes text: Int) {
         _notices.trySend(text)
     }
 }
+
+/**
+ * Where the middle of the photo is on the wall, in centimetres; the middle of
+ * the calibration's rectangle when the photo's is past the wall's horizon.
+ */
+private fun photoCentreOnWall(calibration: Calibration): Pt =
+    calibration.wallToPhoto()?.inverse()?.map(Pt(0.5, 0.5))
+        ?: Pt(calibration.widthCm / 2, calibration.heightCm / 2)

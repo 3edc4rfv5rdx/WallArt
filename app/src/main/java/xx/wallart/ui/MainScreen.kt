@@ -1,6 +1,7 @@
 package xx.wallart.ui
 
 import android.widget.Toast
+import androidx.annotation.StringRes
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -20,7 +21,9 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -43,6 +46,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import xx.wallart.CalibrationEdit
 import xx.wallart.EditorState
+import xx.wallart.PhotoSlot
 import xx.wallart.R
 import xx.wallart.WallViewModel
 
@@ -66,34 +70,83 @@ fun MainScreen(vm: WallViewModel, onExit: () -> Unit, onAbout: () -> Unit) {
     }
 }
 
+/** What the photo being picked is for. */
+private enum class Pick { WALL, NEW_PICTURE, ART, FRAME }
+
+/** The dialog open over the editor, if any. */
+private enum class Dialog { NONE, SIZE, FRAME_COLOR }
+
+/** The selected picture's tools, in the pencil's menu. */
+private enum class PictureTool(@param:StringRes val text: Int) {
+    ART(R.string.artwork_photo),
+    SIZE(R.string.size),
+    FRAME_COLOR(R.string.frame_color),
+    FRAME_PHOTO(R.string.frame_photo),
+    FORWARD(R.string.bring_forward),
+    BACKWARD(R.string.send_backward),
+    REMOVE(R.string.remove_picture),
+}
+
 /** The wall and its pictures under the top bar; the calibration's size and buttons under the wall while one is made. */
 @Composable
 private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -> Unit, onAbout: () -> Unit) {
     val state by vm.state.collectAsState()
+    // Saveable: the system's picker can outlive the activity.
+    var pick by rememberSaveable { mutableStateOf(Pick.WALL) }
+    var dialog by rememberSaveable { mutableStateOf(Dialog.NONE) }
     val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) vm.importPhoto(uri)
+        if (uri != null) {
+            when (pick) {
+                Pick.WALL -> vm.importPhoto(uri)
+                Pick.NEW_PICTURE -> vm.addPicture(uri)
+                Pick.ART -> vm.setPicturePhoto(PhotoSlot.ART, uri)
+                Pick.FRAME -> vm.setPicturePhoto(PhotoSlot.FRAME, uri)
+            }
+        }
     }
-    val choosePhoto = {
+    fun choosePhoto(purpose: Pick) {
+        pick = purpose
         pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
     BackHandler(enabled = state.calibrating != null, onBack = vm::cancelCalibration)
+    BackHandler(enabled = state.calibrating == null && state.selected != null) { vm.select(null) }
 
     // The keyboard too: the size fields sit at the bottom, where it comes up.
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.ime))) {
         TopBar(
             state,
             onExit = onExit,
-            onChoosePhoto = choosePhoto,
+            onChooseWall = { choosePhoto(Pick.WALL) },
             onCalibrate = vm::startCalibration,
+            onAddPicture = { if (!vm.calibrateFirst()) choosePhoto(Pick.NEW_PICTURE) },
+            onPictureTool = { tool ->
+                when (tool) {
+                    PictureTool.ART -> choosePhoto(Pick.ART)
+                    PictureTool.SIZE -> dialog = Dialog.SIZE
+                    PictureTool.FRAME_COLOR -> dialog = Dialog.FRAME_COLOR
+                    PictureTool.FRAME_PHOTO -> choosePhoto(Pick.FRAME)
+                    PictureTool.FORWARD -> vm.restackSelected(1)
+                    PictureTool.BACKWARD -> vm.restackSelected(-1)
+                    PictureTool.REMOVE -> vm.removeSelected()
+                }
+            },
+            onShadow = vm::toggleShadow,
             onSettings = onSettings,
             onAbout = onAbout,
         )
         Box(Modifier.weight(1f).fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
             val image = state.image
             if (image != null) {
-                WallCanvas(image, state.calibrating, onMoveCorner = vm::moveCorner, modifier = Modifier.fillMaxSize())
+                WallCanvas(
+                    state,
+                    image,
+                    onMoveCorner = vm::moveCorner,
+                    onSelect = vm::select,
+                    onMovePicture = vm::movePicture,
+                    modifier = Modifier.fillMaxSize(),
+                )
             } else if (!state.busy) {
-                Button(onClick = choosePhoto) { Text(stringResource(R.string.choose_wall_photo)) }
+                Button(onClick = { choosePhoto(Pick.WALL) }) { Text(stringResource(R.string.choose_wall_photo)) }
             }
             if (state.busy) CircularProgressIndicator()
         }
@@ -107,34 +160,75 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
             )
         }
     }
+
+    val picture = state.selectedPicture
+    when {
+        picture == null || dialog == Dialog.NONE -> Unit
+        dialog == Dialog.SIZE -> PictureSizeDialog(picture, onDismiss = { dialog = Dialog.NONE }) { w, h, m ->
+            vm.setSize(w, h, m)
+            dialog = Dialog.NONE
+        }
+        dialog == Dialog.FRAME_COLOR -> FrameColorDialog(
+            current = picture.frameColor.takeIf { picture.framePhoto == null },
+            onDismiss = { dialog = Dialog.NONE },
+        ) {
+            vm.setFrameColor(it)
+            dialog = Dialog.NONE
+        }
+    }
 }
 
-/** Close on the left; the calibration and the ⋮ menu on the right. */
+/** Close on the left; the calibration, a new picture, the selected one's tools and the ⋮ menu on the right. */
 @Composable
 private fun TopBar(
     state: EditorState,
     onExit: () -> Unit,
-    onChoosePhoto: () -> Unit,
+    onChooseWall: () -> Unit,
     onCalibrate: () -> Unit,
+    onAddPicture: () -> Unit,
+    onPictureTool: (PictureTool) -> Unit,
+    onShadow: () -> Unit,
     onSettings: () -> Unit,
     onAbout: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
+    var tools by remember { mutableStateOf(false) }
+    val editing = state.image != null && state.calibrating == null && !state.busy
     Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         LargeIconButton(Icons.Filled.Close, stringResource(R.string.close), onExit)
         Spacer(Modifier.weight(1f))
-        LargeIconButton(
-            Icons.Filled.Straighten,
-            stringResource(R.string.calibrate),
-            onCalibrate,
-            enabled = state.image != null && state.calibrating == null && !state.busy,
-        )
+        LargeIconButton(Icons.Filled.Straighten, stringResource(R.string.calibrate), onCalibrate, enabled = editing)
+        LargeIconButton(Icons.Filled.AddPhotoAlternate, stringResource(R.string.add_picture), onAddPicture, enabled = editing)
+        val selected = state.selectedPicture
+        if (selected != null && editing) {
+            Box {
+                LargeIconButton(Icons.Filled.Edit, stringResource(R.string.picture), { tools = true })
+                val index = state.wall.pictures.indexOf(selected)
+                AppMenu(expanded = tools, onDismissRequest = { tools = false }) {
+                    PictureTool.entries.forEach { tool ->
+                        val enabled = when (tool) {
+                            PictureTool.FORWARD -> index < state.wall.pictures.lastIndex
+                            PictureTool.BACKWARD -> index > 0
+                            else -> true
+                        }
+                        AppMenuItem(stringResource(tool.text), enabled = enabled) {
+                            tools = false
+                            onPictureTool(tool)
+                        }
+                    }
+                }
+            }
+        }
         Box {
             MoreButton(onClick = { menu = true })
             AppMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 AppMenuItem(stringResource(R.string.wall_photo), enabled = !state.busy) {
                     menu = false
-                    onChoosePhoto()
+                    onChooseWall()
+                }
+                AppMenuItem(stringResource(R.string.shadow), checked = state.wall.shadow) {
+                    menu = false
+                    onShadow()
                 }
                 AppMenuItem(stringResource(R.string.settings)) {
                     menu = false

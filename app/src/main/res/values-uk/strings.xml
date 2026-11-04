@@ -24,4 +24,16 @@
     <string name="cm">см</string>
     <string name="done">Готово</string>
     <string name="photo_unreadable">Не вдалося прочитати фото</string>
+    <string name="add_picture">Додати картину</string>
+    <string name="picture">Картина</string>
+    <string name="artwork_photo">Фото малюнка</string>
+    <string name="size">Розмір</string>
+    <string name="frame_color">Колір рами</string>
+    <string name="frame_photo">Фото рами</string>
+    <string name="frame_width">Ширина рами</string>
+    <string name="bring_forward">Вище</string>
+    <string name="send_backward">Нижче</string>
+    <string name="remove_picture">Видалити картину</string>
+    <string name="shadow">Тінь</string>
+    <string name="calibrate_first">Спочатку відкалібруйте стіну</string>
 </resources>
