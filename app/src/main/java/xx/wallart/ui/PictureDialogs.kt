@@ -49,9 +49,8 @@ private val FRAME_COLORS = listOf(
     0xFFC0C0C0, 0xFFC9A23F, 0xFF1F2E4A, 0xFF6B2A22,
 ).map { it.toInt() }
 
-/** How far a tap on − or + moves an artwork's side, and the frame's width, in centimetres. */
-private const val SIDE_STEP = 1.0
-private const val MOULDING_STEP = 0.5
+/** How far a tap on − or + moves an artwork's side or the frame's width, in centimetres. */
+private const val CM_STEP = 1.0
 
 /**
  * Under [title], a picture's artwork size and frame width in centimetres, starting at
@@ -105,9 +104,9 @@ fun PictureSizeDialog(title: String, initial: ArtSpec, onDismiss: () -> Unit, bu
                     width = formatCm(if (landscape) standard.long else standard.short)
                     height = formatCm(if (landscape) standard.short else standard.long)
                 }
-                CmField("${stringResource(R.string.art_width)}, $cm", width, SIDE_STEP, allowZero = false) { width = it }
-                CmField("${stringResource(R.string.art_height)}, $cm", height, SIDE_STEP, allowZero = false) { height = it }
-                CmField("${stringResource(R.string.frame_width)}, $cm", moulding, MOULDING_STEP, allowZero = true) { moulding = it }
+                CmField("${stringResource(R.string.art_width)}, $cm", width, CM_STEP, allowZero = false) { width = it }
+                CmField("${stringResource(R.string.art_height)}, $cm", height, CM_STEP, allowZero = false) { height = it }
+                CmField("${stringResource(R.string.frame_width)}, $cm", moulding, CM_STEP, allowZero = true) { moulding = it }
             }
         },
         dismissButton = { DialogDismissButton(stringResource(R.string.cancel), onDismiss) },

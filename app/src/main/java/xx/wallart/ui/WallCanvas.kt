@@ -90,8 +90,9 @@ private const val GRID_PARTS_WITHOUT_SIZE = 4.0
  * picture it starts on across the wall, in the wall's centimetres, so it
  * shrinks as it goes further off.
  *
- * Either way two fingers enlarge and move the view, for a closer look; the
- * saved image is not touched by it. A new photo starts at the whole of it.
+ * Either way two fingers enlarge and move the view, for a closer look, and
+ * while it is enlarged one finger moves it too off the pictures and corners;
+ * the saved image is not touched by it. A new photo starts at the whole of it.
  */
 @Composable
 fun WallCanvas(
@@ -127,13 +128,16 @@ fun WallCanvas(
     val painter = remember { PicturePainter() }
     var view by remember(image) { mutableStateOf(Zoom()) }
     val zoom = { view }
+    val pan: PointerInputScope.(Offset) -> Unit = { delta ->
+        view = view.pinched(viewBox(image, size.toSize(), view), size.toSize(), Offset.Zero, delta, 1f)
+    }
 
     val pinch = Modifier.pointerInput(image) {
         pinch { centroid, pan, factor -> view = view.pinched(viewBox(image, size.toSize(), view), size.toSize(), centroid, pan, factor) }
     }
     val gestures = if (calibrating != null) {
         Modifier.pointerInput(image) {
-            dragCorners(image, zoom, { current.calibrating?.corners }, { dragged = it }) { index, to -> moveCorner(index, to) }
+            dragCorners(image, zoom, { pan(it) }, { current.calibrating?.corners }, { dragged = it }) { index, to -> moveCorner(index, to) }
         }
     } else {
         Modifier
@@ -144,6 +148,7 @@ fun WallCanvas(
                 dragPictures(
                     image,
                     zoom,
+                    onPan = { pan(it) },
                     { current },
                     onSelect = select,
                     onGuides = { guides = it },
@@ -238,11 +243,13 @@ private fun DrawScope.drawCalibration(
 private suspend fun PointerInputScope.dragCorners(
     image: ImageBitmap,
     zoom: () -> Zoom,
+    onPan: (Offset) -> Unit,
     corners: () -> List<Pt>?,
     onDragged: (Int) -> Unit,
     onMove: (Int, Pt) -> Unit,
 ) {
     var index = -1
+    var panning = false
     var at = Pt(0.0, 0.0)
     detectDragGestures(
         onDragStart = start@{ down ->
@@ -253,17 +260,27 @@ private suspend fun PointerInputScope.dragCorners(
                 index = nearest
                 at = now[nearest]
                 onDragged(index)
+            } else {
+                // Away from the corners an enlarged view moves under the finger.
+                panning = zoom().scale > 1f
             }
         },
         onDragEnd = {
             index = -1
+            panning = false
             onDragged(-1)
         },
         onDragCancel = {
             index = -1
+            panning = false
             onDragged(-1)
         },
         onDrag = drag@{ change, delta ->
+            if (panning) {
+                change.consume()
+                onPan(delta)
+                return@drag
+            }
             if (index < 0) return@drag
             change.consume()
             val box = viewBox(image, size.toSize(), zoom())
@@ -284,6 +301,7 @@ private suspend fun PointerInputScope.dragCorners(
 private suspend fun PointerInputScope.dragPictures(
     image: ImageBitmap,
     zoom: () -> Zoom,
+    onPan: (Offset) -> Unit,
     state: () -> EditorState,
     onSelect: (Long?) -> Unit,
     onGuides: (List<Guide>) -> Unit,
@@ -296,6 +314,7 @@ private suspend fun PointerInputScope.dragPictures(
 ) {
     var id: Long? = null
     var cropping = false
+    var panning = false
     // The selected picture as a drag of one of its handles found it, and which handle.
     var resizing: Pair<Picture, Int>? = null
     var grabbed = Pt(0.0, 0.0)
@@ -319,8 +338,10 @@ private suspend fun PointerInputScope.dragPictures(
             }
             val hit = pictureAt(now, box, down)
             if (hit == null) {
-                // Off the pictures, a drag moves the crop — when there is one to move.
-                if (now.wall.format.aspect != Aspect.ORIGINAL) {
+                // Off the pictures, a drag moves an enlarged view, or else the crop — when there is one to move.
+                if (zoom().scale > 1f) {
+                    panning = true
+                } else if (now.wall.format.aspect != Aspect.ORIGINAL) {
                     cropping = true
                     onBegin()
                 }
@@ -337,6 +358,7 @@ private suspend fun PointerInputScope.dragPictures(
             if (id != null || cropping || resizing != null) onEnd()
             id = null
             cropping = false
+            panning = false
             resizing = null
             onGuides(emptyList())
         },
@@ -344,6 +366,7 @@ private suspend fun PointerInputScope.dragPictures(
             if (id != null || cropping || resizing != null) onEnd()
             id = null
             cropping = false
+            panning = false
             resizing = null
             onGuides(emptyList())
         },
@@ -355,6 +378,11 @@ private suspend fun PointerInputScope.dragPictures(
                 // The handle moved by as much as the finger, which came down beside it, not on it.
                 val start = picture.bounds.handles[handle]
                 onResize(picture.id, picture, handle, Pt(start.x + point.x - grabbed.x, start.y + point.y - grabbed.y))
+                return@drag
+            }
+            if (panning) {
+                change.consume()
+                onPan(delta)
                 return@drag
             }
             if (cropping) {
