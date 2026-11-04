@@ -29,12 +29,12 @@ enum class Aspect(val short: Double, val long: Double, val sizes: List<Int>, val
  * A named standard: a shape and a size in one pick, either way round — the
  * way the format already is. Labels are not translated: they are names; a
  * [shaped] one is told apart by its shape, named after it as it is turned.
- * Every size is one its shape offers.
+ * Every size is one its shape offers, and no two make the same format:
+ * Stories, 9:16 at 1920, is Full HD stood up.
  */
 enum class Preset(val label: String, val aspect: Aspect, val longSide: Int, val shaped: Boolean = false) {
     INSTAGRAM_SQUARE("Instagram", Aspect.SQUARE, 1080, shaped = true),
     INSTAGRAM_4_5("Instagram", Aspect.FOUR_FIVE, 1350, shaped = true),
-    STORIES("Stories", Aspect.NINE_SIXTEEN, 1920, shaped = true),
     HD("HD", Aspect.NINE_SIXTEEN, 1280),
     FULL_HD("Full HD", Aspect.NINE_SIXTEEN, 1920),
     QHD("2K", Aspect.NINE_SIXTEEN, 2560),

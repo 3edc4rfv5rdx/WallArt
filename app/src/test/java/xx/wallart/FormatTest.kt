@@ -62,6 +62,8 @@ class FormatTest {
         assertEquals(Format(Aspect.A4, landscape = false, longSide = 3508), upright)
         assertEquals(Preset.A4_300, upright.copy(landscape = true).preset())
         assertNull(Format().preset())
+        // Either way round, no two presets make one format.
+        assertEquals(Preset.entries.size, Preset.entries.distinctBy { it.aspect to it.longSide }.size)
     }
 
     @Test

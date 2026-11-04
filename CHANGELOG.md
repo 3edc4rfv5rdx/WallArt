@@ -3,6 +3,7 @@
 > N=new feature, E=error fix, F=fine-tune, R=refactor, I=infrastructure
 
 ## Unreleased
+- E: Stories left the presets: either way round it was Full HD, which Format took for it
 - F: Share sends Full HD's long side, 1920
 - F: A new way round in Format keeps the size; only a new shape takes the one nearest its crop
 - E: A preset keeps the way round chosen, so A4 and the rest can be landscape too
