@@ -7,6 +7,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -22,6 +23,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -29,15 +31,21 @@ import androidx.compose.ui.unit.toSize
 import xx.wallart.CalibrationEdit
 import xx.wallart.CmRect
 import xx.wallart.EditorState
+import xx.wallart.Guide
 import xx.wallart.Homography
 import xx.wallart.Pt
+import xx.wallart.R
 import xx.wallart.calibrationHomography
 import xx.wallart.gridStep
 import xx.wallart.insideConvex
 import xx.wallart.parseCm
+import xx.wallart.snapPicture
 import kotlin.math.floor
 import kotlin.math.min
 import kotlin.math.roundToInt
+
+/** How near on screen a dragged picture's edge, centre or gap has to come to another's to snap to it. */
+private val SNAP_REACH = 10.dp
 
 /** How near a finger has to come down to a corner to take it. */
 private val CORNER_REACH = 40.dp
@@ -71,6 +79,10 @@ fun WallCanvas(
     onMovePicture: (Long, Double, Double) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val cm = stringResource(R.string.cm)
+    // The guides of the snap the picture being dragged is held at; none between drags.
+    var guides by remember { mutableStateOf(emptyList<Guide>()) }
+    val guidePainter = remember { GuidePainter() }
     val accent = MaterialTheme.colorScheme.primary
     val error = MaterialTheme.colorScheme.error
     val calibrating = state.calibrating
@@ -91,7 +103,7 @@ fun WallCanvas(
                 detectTapGestures { down -> select(pictureAt(current, image, size.toSize(), down)) }
             }
             .pointerInput(image) {
-                dragPictures(image, { current }, select) { id, left, top -> movePicture(id, left, top) }
+                dragPictures(image, { current }, select, { guides = it }) { id, left, top -> movePicture(id, left, top) }
             }
     }
 
@@ -107,6 +119,7 @@ fun WallCanvas(
         if (homography != null) {
             val selected = if (calibrating == null) state.selected else null
             painter.draw(this, state, box, homography, selected, accent)
+            if (calibrating == null) guidePainter.draw(this, guides, box, homography, accent, cm)
         }
         if (calibrating != null) drawCalibration(calibrating, image, box, dragged, accent, error)
     }
@@ -180,12 +193,15 @@ private suspend fun PointerInputScope.dragCorners(
 /**
  * Drags of the pictures: the one a drag starts on is selected and follows the
  * finger across the wall — the point under the finger stays under it, the
- * picture keeping its size in centimetres as it goes.
+ * picture keeping its size in centimetres as it goes — and snaps to the
+ * others' edges, centres and gaps when it comes within [SNAP_REACH] of one on
+ * screen, [onGuides] told what it is held at.
  */
 private suspend fun PointerInputScope.dragPictures(
     image: ImageBitmap,
     state: () -> EditorState,
     onSelect: (Long?) -> Unit,
+    onGuides: (List<Guide>) -> Unit,
     onMove: (Long, Double, Double) -> Unit,
 ) {
     var id: Long? = null
@@ -202,17 +218,40 @@ private suspend fun PointerInputScope.dragPictures(
             from = now.wall.pictures.first { it.id == hit }.bounds
             onSelect(hit)
         },
-        onDragEnd = { id = null },
-        onDragCancel = { id = null },
+        onDragEnd = {
+            id = null
+            onGuides(emptyList())
+        },
+        onDragCancel = {
+            id = null
+            onGuides(emptyList())
+        },
         onDrag = drag@{ change, _ ->
             val moving = id ?: return@drag
             change.consume()
-            val toWall = photoToWall(state()) ?: return@drag
+            val now = state()
+            val wallToPhoto = now.wall.calibration?.wallToPhoto() ?: return@drag
+            val toWall = wallToPhoto.inverse() ?: return@drag
+            val box = fitImage(image, size.toSize())
             // A finger past the horizon has no place on the wall: the picture waits where it was.
-            val point = toWall.map(fitImage(image, size.toSize()).toPhoto(change.position)) ?: return@drag
-            onMove(moving, from.left + point.x - grabbed.x, from.top + point.y - grabbed.y)
+            val point = toWall.map(box.toPhoto(change.position)) ?: return@drag
+            val raw = from.copy(left = from.left + point.x - grabbed.x, top = from.top + point.y - grabbed.y)
+            // The reach is the same on screen everywhere; in centimetres it grows as the picture goes further off.
+            val reach = cmPerPx(raw, wallToPhoto, box)?.let { SNAP_REACH.toPx() * it } ?: 0.0
+            val others = now.wall.pictures.filter { it.id != moving }.map { it.bounds }
+            val snap = snapPicture(raw, others, reach)
+            onMove(moving, snap.left, snap.top)
+            onGuides(snap.guides)
         },
     )
+}
+
+/** How many centimetres a pixel of screen is across [rect]'s top edge as drawn; null when it is not drawn. */
+private fun cmPerPx(rect: CmRect, wallToPhoto: Homography, box: ImageBox): Double? {
+    val left = wallToPhoto.map(Pt(rect.left, rect.top))?.let(box::toScreen) ?: return null
+    val right = wallToPhoto.map(Pt(rect.right, rect.top))?.let(box::toScreen) ?: return null
+    val px = (right - left).getDistance()
+    return if (px > 0) rect.width / px else null
 }
 
 /** The photo's 0..1 coordinates onto the wall's centimetres; null without a calibration. */

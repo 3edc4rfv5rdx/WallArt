@@ -3,6 +3,7 @@
 > N=new feature, E=error fix, F=fine-tune, R=refactor, I=infrastructure
 
 ## Unreleased
+- N: A dragged picture snaps to the others' edges, centres and the gaps already between them, with guide lines and the gap in centimetres
 - N: Shadow in the ⋮ menu lets the pictures cast a soft shadow on the wall
 - N: The pencil sets the selected picture's artwork, size and frame width in centimetres, frame colour or frame photo, its place in the stack, or removes it
 - N: Add picture hangs an artwork in a frame on the calibrated wall, in its perspective, to be tapped and dragged across it
