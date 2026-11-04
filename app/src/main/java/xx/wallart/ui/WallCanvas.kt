@@ -10,6 +10,8 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -30,6 +32,10 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -161,7 +167,37 @@ fun WallCanvas(
             }
     }
 
-    Canvas(modifier.clipToBounds().then(pinch).then(gestures)) {
+    // The calibration's corners kept from the system's back gesture: one put near the screen's edge is still dragged.
+    val host = LocalView.current
+    val placed = remember { arrayOfNulls<LayoutCoordinates>(1) }
+    val reach = with(LocalDensity.current) { CORNER_REACH.toPx() }
+    val zoomNow = view
+    fun exclude() {
+        val coordinates = placed[0]?.takeIf { it.isAttached }
+        val corners = current.calibrating?.corners
+        host.systemGestureExclusionRects = if (coordinates == null || corners == null) {
+            emptyList()
+        } else {
+            val box = viewBox(image, coordinates.size.toSize(), zoomNow)
+            corners.map { corner ->
+                val at = coordinates.localToRoot(box.toScreen(corner))
+                android.graphics.Rect((at.x - reach).toInt(), (at.y - reach).toInt(), (at.x + reach).toInt(), (at.y + reach).toInt())
+            }
+        }
+    }
+    SideEffect { exclude() }
+    DisposableEffect(host) { onDispose { host.systemGestureExclusionRects = emptyList() } }
+
+    Canvas(
+        modifier
+            .clipToBounds()
+            .onGloballyPositioned {
+                placed[0] = it
+                exclude()
+            }
+            .then(pinch)
+            .then(gestures),
+    ) {
         val box = viewBox(image, size, view)
         drawPhoto(image, box)
         // While calibrating, the pictures move with the corners: the calibration as it would be, once it is one.
