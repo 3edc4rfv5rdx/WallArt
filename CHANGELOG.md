@@ -3,6 +3,7 @@
 > N=new feature, E=error fix, F=fine-tune, R=refactor, I=infrastructure
 
 ## Unreleased
+- N: Resize in the pencil menu puts out handles and the artwork's size in centimetres, a corner sizing it with its shape kept and a side's middle one way only, in whole centimetres, snapping to standard sizes
 - N: Duplicate in the pencil menu puts a copy of the picture beside it, at the gap it has to its neighbour or 10 cm
 - F: Size in the pencil menu sets the artwork's size and way round and the frame round it, each side typed in large figures or stepped by − and +, with the standard sizes in a drop-down and the size outside the frame large in the title
 - N: Save image in the ⋮ menu saves the wall with its pictures into Pictures/WallArt, and Share sends it

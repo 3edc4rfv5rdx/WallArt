@@ -1,5 +1,7 @@
 package xx.wallart
 
+import kotlin.math.abs
+
 /**
  * A rectangle of known size on the wall, as the photo shows it: its corners
  * in the photo's 0..1 coordinates — top left, top right, bottom right,
@@ -51,6 +53,75 @@ data class Picture(
     /** Where the artwork shows: inside the moulding. */
     val opening get() = bounds.inset(mouldingCm)
 
+    /**
+     * The picture with its [corner] (0 top left, clockwise) dragged to [to] on
+     * the wall, the corner across from it staying where it is: the artwork
+     * keeps its shape, is a whole number of centimetres across — no less than
+     * [MIN_ART_CM] — and takes a standard size it comes within
+     * [STANDARD_SNAP_CM] of; the frame stays as wide.
+     */
+    fun resizedTo(corner: Int, to: Pt): Picture {
+        val anchor = bounds.corners[(corner + 2) % 4]
+        val w0 = opening.width
+        val h0 = opening.height
+        // The artwork the finger asks for, scaled along the artwork's own diagonal: the nearest of its shape.
+        val wantW = abs(to.x - anchor.x) - 2 * mouldingCm
+        val wantH = abs(to.y - anchor.y) - 2 * mouldingCm
+        val scale = (wantW * w0 + wantH * h0) / (w0 * w0 + h0 * h0)
+        var w = Math.round(w0 * scale).toDouble().coerceAtLeast(MIN_ART_CM)
+        var h = Math.round(w * h0 / w0).toDouble().coerceAtLeast(MIN_ART_CM)
+        STANDARD_ART_SIZES.firstOrNull { standard ->
+            val (sw, sh) = if (w > h) standard.long to standard.short else standard.short to standard.long
+            abs(w - sw) <= STANDARD_SNAP_CM && abs(h - sh) <= STANDARD_SNAP_CM
+        }?.let { standard ->
+            val landscape = w > h
+            w = if (landscape) standard.long else standard.short
+            h = if (landscape) standard.short else standard.long
+        }
+        val outerW = w + 2 * mouldingCm
+        val outerH = h + 2 * mouldingCm
+        // Away from the anchor, on the side the corner dragged is.
+        val left = if (corner == 0 || corner == 3) anchor.x - outerW else anchor.x
+        val top = if (corner == 0 || corner == 1) anchor.y - outerH else anchor.y
+        return copy(bounds = CmRect(left, top, outerW, outerH))
+    }
+
+    /**
+     * The picture with the middle of its [side] (0 top, clockwise) dragged to
+     * [to] on the wall, the side across from it staying where it is: only that
+     * way the artwork changes, in whole centimetres, no less than
+     * [MIN_ART_CM], and onto a standard size with the other side when it comes
+     * within [STANDARD_SNAP_CM] of one.
+     */
+    fun resizedSide(side: Int, to: Pt): Picture {
+        val across = side == 1 || side == 3
+        val b = bounds
+        val other = if (across) opening.height else opening.width
+        val wanted = when (side) {
+            0 -> b.bottom - to.y
+            1 -> to.x - b.left
+            2 -> to.y - b.top
+            else -> b.right - to.x
+        } - 2 * mouldingCm
+        var art = Math.round(wanted).toDouble().coerceAtLeast(MIN_ART_CM)
+        // The standard sizes the other side makes with some length of this one.
+        STANDARD_ART_SIZES.flatMap { listOf(it.short to it.long, it.long to it.short) }
+            .filter { (fixed, _) -> abs(fixed - other) < 1e-9 }
+            .map { (_, length) -> length }
+            .minByOrNull { abs(it - art) }
+            ?.takeIf { abs(it - art) <= STANDARD_SNAP_CM }
+            ?.let { art = it }
+        val outer = art + 2 * mouldingCm
+        return copy(
+            bounds = when (side) {
+                0 -> b.copy(top = b.bottom - outer, height = outer)
+                1 -> b.copy(width = outer)
+                2 -> b.copy(height = outer)
+                else -> b.copy(left = b.right - outer, width = outer)
+            },
+        )
+    }
+
     /** The picture round an artwork [width] × [height] in a frame [moulding] wide, kept centred where it was. */
     fun withArtSize(width: Double, height: Double, moulding: Double): Picture {
         val outerW = width + 2 * moulding
@@ -64,6 +135,12 @@ data class Picture(
 }
 
 const val DEFAULT_MOULDING_CM = 3.0
+
+/** The smallest artwork a picture's corner can be dragged down to. */
+const val MIN_ART_CM = 5.0
+
+/** How near a picture's corner, dragged, has to bring its artwork to a standard size to take it. */
+const val STANDARD_SNAP_CM = 1.5
 
 /** The gap a copy of a picture is put at beside it, when it has none to a neighbour to go by. */
 const val DEFAULT_GAP_CM = 10.0

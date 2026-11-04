@@ -95,4 +95,45 @@ class WallTest {
         assertEquals(72.0, row.duplicated(2)!!.first.pictures.last().bounds.left, 1e-9)
         assertNull(alone.duplicated(9))
     }
+
+    @Test
+    fun `a corner dragged keeps the corner across, the artwork's shape and whole centimetres`() {
+        // A 30 × 40 artwork in a 3 cm frame, its top left at 0, 0: 36 × 46 outside.
+        val picture = Picture(1, CmRect(0.0, 0.0, 36.0, 46.0), mouldingCm = 3.0)
+        // The bottom right dragged out to make about 45 × 60 of artwork.
+        val bigger = picture.resizedTo(2, Pt(51.4, 66.2))
+        assertEquals(CmRect(0.0, 0.0, 51.0, 66.0), bigger.bounds)
+        // The top left dragged in: the bottom right stays at 36, 46.
+        val smaller = picture.resizedTo(0, Pt(12.0, 15.0))
+        assertEquals(36.0, smaller.bounds.right, 1e-9)
+        assertEquals(46.0, smaller.bounds.bottom, 1e-9)
+        assertEquals(smaller.opening.width / smaller.opening.height, 0.75, 0.03)
+    }
+
+    @Test
+    fun `a corner dragged near a standard size takes it, and no smaller than the least`() {
+        val picture = Picture(1, CmRect(0.0, 0.0, 36.0, 46.0), mouldingCm = 3.0)
+        // 41 × 55 asked: 40 × 50 is 5 off on the long side, too far to take.
+        assertEquals(41.0, picture.resizedTo(2, Pt(47.0, 61.0)).opening.width, 1e-9)
+        // 22 × 29 asked: A4's 21 × 29.7 is within reach on both sides, and taken.
+        val a4 = picture.resizedTo(2, Pt(28.0, 35.3)).opening
+        assertEquals(21.0, a4.width, 1e-9)
+        assertEquals(29.7, a4.height, 1e-9)
+        assertEquals(MIN_ART_CM, picture.resizedTo(2, Pt(1.0, 1.0)).opening.width, 1e-9)
+    }
+
+    @Test
+    fun `a side dragged changes only that way, the side across staying`() {
+        // A 30 × 40 artwork in a 3 cm frame: 36 × 46 outside.
+        val picture = Picture(1, CmRect(10.0, 20.0, 36.0, 46.0), mouldingCm = 3.0)
+        // The bottom down to 47.6 cm of artwork: rounds to 48, then 30 × 45 is 3 off — too far.
+        val longer = picture.resizedSide(2, Pt(0.0, 20.0 + 6.0 + 47.6))
+        assertEquals(CmRect(10.0, 20.0, 36.0, 54.0), longer.bounds)
+        // The bottom down to 44.2: 30 × 45 is within reach, and taken.
+        assertEquals(45.0, picture.resizedSide(2, Pt(0.0, 20.0 + 6.0 + 44.2)).opening.height, 1e-9)
+        // The left side in: the right stays at 46.
+        val narrower = picture.resizedSide(3, Pt(25.0, 0.0))
+        assertEquals(46.0, narrower.bounds.right, 1e-9)
+        assertEquals(15.0, narrower.opening.width, 1e-9)
+    }
 }

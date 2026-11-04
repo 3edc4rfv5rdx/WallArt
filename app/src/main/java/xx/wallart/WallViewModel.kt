@@ -312,6 +312,19 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Picture [id] sized as [from] — the picture as the drag found it — would
+     * be with its [handle] dragged to [to] on the wall. From where the drag
+     * started, not from the last frame: whole centimetres rounded frame after
+     * frame would drift off the artwork's shape. A step only with the drag it
+     * is part of.
+     */
+    fun resizePicture(id: Long, from: Picture, handle: Int, to: Pt) {
+        // The corners first, 0 to 3; the middles of the sides after them, 4 to 7.
+        val bounds = (if (handle < 4) from.resizedTo(handle, to) else from.resizedSide(handle - 4, to)).bounds
+        _state.update { state -> state.copy(wall = state.wall.updated(id) { it.copy(bounds = bounds) }) }
+    }
+
     fun select(id: Long?) {
         _state.update { it.copy(selected = id) }
     }

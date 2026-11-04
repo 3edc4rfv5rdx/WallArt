@@ -18,7 +18,8 @@ import kotlin.math.roundToLong
 /**
  * Draws the guides of a snap through the wall's projection: a line in the
  * accent over a dark one, so it shows on any wall, and on a gap's guide its
- * size in centimetres in a pill at its middle.
+ * size in centimetres in a pill at its middle — and such pills of their own,
+ * as the selected picture's size.
  */
 internal class GuidePainter {
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
@@ -29,9 +30,6 @@ internal class GuidePainter {
     fun draw(scope: DrawScope, guides: List<Guide>, box: ImageBox, homography: Homography, accent: Color, cm: String) {
         if (guides.isEmpty()) return
         val line = with(scope) { 1.5.dp.toPx() }
-        val padding = with(scope) { 4.dp.toPx() }
-        textPaint.textSize = with(scope) { 13.sp.toPx() }
-        textPaint.color = Color.White.toArgb()
         scope.drawIntoCanvas { composeCanvas ->
             val canvas = composeCanvas.nativeCanvas
             for (guide in guides) {
@@ -46,17 +44,36 @@ internal class GuidePainter {
                 val gap = guide.gapCm ?: continue
                 // To a tenth of a centimetre: a finer figure only says how unsteady the finger was.
                 val text = "${formatCm((gap * 10).roundToLong() / 10.0)} $cm"
-                val mid = Offset((from.x + to.x) / 2, (from.y + to.y) / 2)
-                val half = textPaint.measureText(text) / 2 + padding
-                val top = mid.y - textPaint.textSize / 2 - padding
-                val bottom = mid.y + textPaint.textSize / 2 + padding
-                pill.set(mid.x - half, top, mid.x + half, bottom)
-                pillPaint.color = accent.toArgb()
-                canvas.drawRoundRect(pill, (bottom - top) / 2, (bottom - top) / 2, pillPaint)
-                // The baseline put so the text's middle is the pill's.
-                val baseline = mid.y - (textPaint.descent() + textPaint.ascent()) / 2
-                canvas.drawText(text, mid.x, baseline, textPaint)
+                pill(scope, canvas, text, Offset((from.x + to.x) / 2, (from.y + to.y) / 2), accent)
             }
         }
+    }
+
+    /** [text] in a pill of [accent] centred on [at] — or, when [above], standing on it. */
+    fun label(scope: DrawScope, text: String, at: Offset, accent: Color, above: Boolean = false) {
+        scope.drawIntoCanvas { composeCanvas ->
+            val height = textHeight(scope) + 2 * padding(scope)
+            val centre = if (above) Offset(at.x, at.y - height / 2 - padding(scope)) else at
+            pill(scope, composeCanvas.nativeCanvas, text, centre, accent)
+        }
+    }
+
+    private fun padding(scope: DrawScope) = with(scope) { 4.dp.toPx() }
+
+    private fun textHeight(scope: DrawScope) = with(scope) { 13.sp.toPx() }
+
+    private fun pill(scope: DrawScope, canvas: android.graphics.Canvas, text: String, mid: Offset, accent: Color) {
+        val padding = padding(scope)
+        textPaint.textSize = textHeight(scope)
+        textPaint.color = Color.White.toArgb()
+        val half = textPaint.measureText(text) / 2 + padding
+        val top = mid.y - textPaint.textSize / 2 - padding
+        val bottom = mid.y + textPaint.textSize / 2 + padding
+        pill.set(mid.x - half, top, mid.x + half, bottom)
+        pillPaint.color = accent.toArgb()
+        canvas.drawRoundRect(pill, (bottom - top) / 2, (bottom - top) / 2, pillPaint)
+        // The baseline put so the text's middle is the pill's.
+        val baseline = mid.y - (textPaint.descent() + textPaint.ascent()) / 2
+        canvas.drawText(text, mid.x, baseline, textPaint)
     }
 }

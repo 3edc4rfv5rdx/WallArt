@@ -34,10 +34,12 @@ import xx.wallart.CmRect
 import xx.wallart.Crop
 import xx.wallart.EditorState
 import xx.wallart.Guide
+import xx.wallart.Picture
 import xx.wallart.Homography
 import xx.wallart.Pt
 import xx.wallart.R
 import xx.wallart.calibrationHomography
+import xx.wallart.formatCm
 import xx.wallart.gridStep
 import xx.wallart.insideConvex
 import xx.wallart.parseCm
@@ -45,6 +47,9 @@ import xx.wallart.snapPicture
 import kotlin.math.floor
 import kotlin.math.min
 import kotlin.math.roundToInt
+
+/** How far above the selected picture's top its size stands: clear of the handles there. */
+private val LABEL_LIFT = 14.dp
 
 /** How dark what the crop leaves out is drawn. */
 private const val CROP_DIM = 0.55f
@@ -85,6 +90,8 @@ fun WallCanvas(
     onDragStart: () -> Unit,
     onDragEnd: () -> Unit,
     onMoveCrop: (Double, Double, Double) -> Unit,
+    onResizePicture: (Long, Picture, Int, Pt) -> Unit,
+    sizing: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val cm = stringResource(R.string.cm)
@@ -102,6 +109,8 @@ fun WallCanvas(
     val dragStart by rememberUpdatedState(onDragStart)
     val dragEnd by rememberUpdatedState(onDragEnd)
     val moveCrop by rememberUpdatedState(onMoveCrop)
+    val resizePicture by rememberUpdatedState(onResizePicture)
+    val isSizing by rememberUpdatedState(sizing)
     val painter = remember { PicturePainter() }
 
     val gestures = if (calibrating != null) {
@@ -122,6 +131,8 @@ fun WallCanvas(
                     onBegin = { dragStart() },
                     onEnd = { dragEnd() },
                     onMoveCrop = { dx, dy -> moveCrop(dx, dy, image.width.toDouble() / image.height) },
+                    onResize = { id, from, handle, to -> resizePicture(id, from, handle, to) },
+                    sizing = { isSizing },
                 ) { id, left, top -> movePicture(id, left, top) }
             }
     }
@@ -138,7 +149,20 @@ fun WallCanvas(
         if (homography != null) {
             val selected = if (calibrating == null) state.selected else null
             painter.draw(this, state, box, homography, selected, accent)
-            if (calibrating == null) guidePainter.draw(this, guides, box, homography, accent, cm)
+            if (calibrating == null) {
+                guidePainter.draw(this, guides, box, homography, accent, cm)
+                // The handles and the size only while sizing: a picture merely picked is not being measured.
+                state.selectedPicture?.takeIf { sizing }?.let { picture ->
+                    val handles = picture.bounds.handles.mapNotNull { homography.map(it)?.let(box::toScreen) }
+                    if (handles.size == HANDLE_COUNT) {
+                        handles.forEach { drawCorner(it, accent) }
+                        // The artwork's size, which is what is bought, over the top edge — clear of its handles.
+                        val top = Offset(handles[4].x, minOf(handles[0].y, handles[1].y, handles[4].y) - LABEL_LIFT.toPx())
+                        val o = picture.opening
+                        guidePainter.label(this, "${formatCm(o.width)}×${formatCm(o.height)} $cm", top, accent, above = true)
+                    }
+                }
+            }
         }
         if (calibrating == null && state.wall.format.aspect != Aspect.ORIGINAL) {
             drawCrop(state.wall.format.crop(image.width.toDouble() / image.height), box)
@@ -245,15 +269,33 @@ private suspend fun PointerInputScope.dragPictures(
     onBegin: () -> Unit,
     onEnd: () -> Unit,
     onMoveCrop: (Double, Double) -> Unit,
+    onResize: (Long, Picture, Int, Pt) -> Unit,
+    sizing: () -> Boolean,
     onMove: (Long, Double, Double) -> Unit,
 ) {
     var id: Long? = null
     var cropping = false
+    // The selected picture as a drag of one of its handles found it, and which handle.
+    var resizing: Pair<Picture, Int>? = null
     var grabbed = Pt(0.0, 0.0)
     var from = CmRect(0.0, 0.0, 0.0, 0.0)
     detectDragGestures(
         onDragStart = start@{ down ->
             val now = state()
+            val box = fitImage(image, size.toSize())
+            val toWall = photoToWall(now)
+            // While sizing, a handle of the selected picture first: it lies on the picture's own edge, where a drag
+            // would move it.
+            val handle = if (sizing()) selectedHandleAt(now, box, down, CORNER_REACH.toPx()) else null
+            if (handle != null && toWall != null) {
+                val point = toWall.map(box.toPhoto(down))
+                if (point != null) {
+                    resizing = handle
+                    grabbed = point
+                    onBegin()
+                    return@start
+                }
+            }
             val hit = pictureAt(now, image, size.toSize(), down)
             if (hit == null) {
                 // Off the pictures, a drag moves the crop — when there is one to move.
@@ -263,8 +305,7 @@ private suspend fun PointerInputScope.dragPictures(
                 }
                 return@start
             }
-            val toWall = photoToWall(now) ?: return@start
-            val point = toWall.map(fitImage(image, size.toSize()).toPhoto(down)) ?: return@start
+            val point = toWall?.map(box.toPhoto(down)) ?: return@start
             id = hit
             grabbed = point
             from = now.wall.pictures.first { it.id == hit }.bounds
@@ -272,18 +313,29 @@ private suspend fun PointerInputScope.dragPictures(
             onBegin()
         },
         onDragEnd = {
-            if (id != null || cropping) onEnd()
+            if (id != null || cropping || resizing != null) onEnd()
             id = null
             cropping = false
+            resizing = null
             onGuides(emptyList())
         },
         onDragCancel = {
-            if (id != null || cropping) onEnd()
+            if (id != null || cropping || resizing != null) onEnd()
             id = null
             cropping = false
+            resizing = null
             onGuides(emptyList())
         },
         onDrag = drag@{ change, delta ->
+            resizing?.let { (picture, handle) ->
+                change.consume()
+                val toWall = photoToWall(state()) ?: return@drag
+                val point = toWall.map(fitImage(image, size.toSize()).toPhoto(change.position)) ?: return@drag
+                // The handle moved by as much as the finger, which came down beside it, not on it.
+                val start = picture.bounds.handles[handle]
+                onResize(picture.id, picture, handle, Pt(start.x + point.x - grabbed.x, start.y + point.y - grabbed.y))
+                return@drag
+            }
             if (cropping) {
                 change.consume()
                 val box = fitImage(image, size.toSize())
@@ -316,6 +368,26 @@ private fun cmPerPx(rect: CmRect, wallToPhoto: Homography, box: ImageBox): Doubl
     val px = (right - left).getDistance()
     return if (px > 0) rect.width / px else null
 }
+
+/** The selected picture and which of its handles is within [reach] of [at] on screen, the nearest; null for none. */
+private fun selectedHandleAt(state: EditorState, box: ImageBox, at: Offset, reach: Float): Pair<Picture, Int>? {
+    val picture = state.selectedPicture ?: return null
+    val homography = state.wall.calibration?.wallToPhoto() ?: return null
+    val handles = picture.bounds.handles.map { homography.map(it)?.let(box::toScreen) ?: return null }
+    val nearest = handles.indices.minBy { (handles[it] - at).getDistance() }
+    return if ((handles[nearest] - at).getDistance() <= reach) picture to nearest else null
+}
+
+/** A picture's handles on the wall: its corners clockwise from the top left, then the middles of its sides from the top. */
+private val CmRect.handles: List<Pt>
+    get() = corners + listOf(
+        Pt(left + width / 2, top),
+        Pt(right, top + height / 2),
+        Pt(left + width / 2, bottom),
+        Pt(left, top + height / 2),
+    )
+
+private const val HANDLE_COUNT = 8
 
 /** The photo's 0..1 coordinates onto the wall's centimetres; null without a calibration. */
 private fun photoToWall(state: EditorState): Homography? = state.wall.calibration?.wallToPhoto()?.inverse()

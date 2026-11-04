@@ -103,6 +103,7 @@ private enum class Dialog { NONE, SIZE, FRAME_COLOR, NEW_WALL, OPEN_DRAFT, FORMA
 private enum class PictureTool(@param:StringRes val text: Int) {
     ART(R.string.artwork_photo),
     SIZE(R.string.size),
+    RESIZE(R.string.resize),
     FRAME_COLOR(R.string.frame_color),
     FRAME_PHOTO(R.string.frame_photo),
     FORWARD(R.string.bring_forward),
@@ -118,6 +119,9 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
     // Saveable: the system's picker can outlive the activity.
     var pick by rememberSaveable { mutableStateOf(Pick.WALL) }
     var dialog by rememberSaveable { mutableStateOf(Dialog.NONE) }
+    // The selected picture's handles out, to size it by: till Back, or the selection goes.
+    var sizing by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(state.selected) { sizing = false }
     val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) {
             when (pick) {
@@ -133,7 +137,9 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
         pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
     BackHandler(enabled = state.calibrating != null, onBack = vm::cancelCalibration)
-    BackHandler(enabled = state.calibrating == null && state.selected != null) { vm.select(null) }
+    BackHandler(enabled = state.calibrating == null && state.selected != null) {
+        if (sizing) sizing = false else vm.select(null)
+    }
 
     // The keyboard too: the size fields sit at the bottom, where it comes up.
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.ime))) {
@@ -156,6 +162,7 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
                 when (tool) {
                     PictureTool.ART -> choosePhoto(Pick.ART)
                     PictureTool.SIZE -> dialog = Dialog.SIZE
+                    PictureTool.RESIZE -> sizing = true
                     PictureTool.FRAME_COLOR -> dialog = Dialog.FRAME_COLOR
                     PictureTool.FRAME_PHOTO -> choosePhoto(Pick.FRAME)
                     PictureTool.FORWARD -> vm.restackSelected(1)
@@ -180,6 +187,8 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
                     onDragStart = vm::beginDrag,
                     onDragEnd = vm::endDrag,
                     onMoveCrop = vm::moveCrop,
+                    onResizePicture = vm::resizePicture,
+                    sizing = sizing && state.selected != null,
                     modifier = Modifier.fillMaxSize(),
                 )
                 // A photo the wall has but does not show yet — after a step back — is on its way, not to be chosen.

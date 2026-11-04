@@ -64,4 +64,5 @@
     <string name="less">Меньше</string>
     <string name="more">Больше</string>
     <string name="duplicate">Дублировать</string>
+    <string name="resize">Изменить размер</string>
 </resources>
