@@ -1,6 +1,11 @@
 package xx.wallart.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.material3.MaterialTheme
@@ -12,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -21,6 +27,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
@@ -64,6 +71,9 @@ private val LOUPE_RADIUS = 64.dp
 private val LOUPE_MARGIN = 8.dp
 private const val LOUPE_ZOOM = 3f
 
+/** How far two fingers may enlarge the photo to look closer. */
+private const val MAX_ZOOM = 8f
+
 /** The size the grid is drawn for while the size fields hold none yet: just enough lines to show the perspective. */
 private const val GRID_PARTS_WITHOUT_SIZE = 4.0
 
@@ -79,6 +89,9 @@ private const val GRID_PARTS_WITHOUT_SIZE = 4.0
  * Otherwise: a tap selects the picture under it, or none; a drag moves the
  * picture it starts on across the wall, in the wall's centimetres, so it
  * shrinks as it goes further off.
+ *
+ * Either way two fingers enlarge and move the view, for a closer look; the
+ * saved image is not touched by it. A new photo starts at the whole of it.
  */
 @Composable
 fun WallCanvas(
@@ -112,19 +125,25 @@ fun WallCanvas(
     val resizePicture by rememberUpdatedState(onResizePicture)
     val isSizing by rememberUpdatedState(sizing)
     val painter = remember { PicturePainter() }
+    var view by remember(image) { mutableStateOf(Zoom()) }
+    val zoom = { view }
 
+    val pinch = Modifier.pointerInput(image) {
+        pinch { centroid, pan, factor -> view = view.pinched(viewBox(image, size.toSize(), view), size.toSize(), centroid, pan, factor) }
+    }
     val gestures = if (calibrating != null) {
         Modifier.pointerInput(image) {
-            dragCorners(image, { current.calibrating?.corners }, { dragged = it }) { index, to -> moveCorner(index, to) }
+            dragCorners(image, zoom, { current.calibrating?.corners }, { dragged = it }) { index, to -> moveCorner(index, to) }
         }
     } else {
         Modifier
             .pointerInput(image) {
-                detectTapGestures { down -> select(pictureAt(current, image, size.toSize(), down)) }
+                detectTapGestures { down -> select(pictureAt(current, viewBox(image, size.toSize(), zoom()), down)) }
             }
             .pointerInput(image) {
                 dragPictures(
                     image,
+                    zoom,
                     { current },
                     onSelect = select,
                     onGuides = { guides = it },
@@ -137,8 +156,8 @@ fun WallCanvas(
             }
     }
 
-    Canvas(modifier.then(gestures)) {
-        val box = fitImage(image, size)
+    Canvas(modifier.clipToBounds().then(pinch).then(gestures)) {
+        val box = viewBox(image, size, view)
         drawPhoto(image, box)
         // While calibrating, the pictures move with the corners: the calibration as it would be, once it is one.
         val homography = if (calibrating != null) {
@@ -218,6 +237,7 @@ private fun DrawScope.drawCalibration(
  */
 private suspend fun PointerInputScope.dragCorners(
     image: ImageBitmap,
+    zoom: () -> Zoom,
     corners: () -> List<Pt>?,
     onDragged: (Int) -> Unit,
     onMove: (Int, Pt) -> Unit,
@@ -227,7 +247,7 @@ private suspend fun PointerInputScope.dragCorners(
     detectDragGestures(
         onDragStart = start@{ down ->
             val now = corners() ?: return@start
-            val box = fitImage(image, size.toSize())
+            val box = viewBox(image, size.toSize(), zoom())
             val nearest = now.indices.minBy { (box.toScreen(now[it]) - down).getDistance() }
             if ((box.toScreen(now[nearest]) - down).getDistance() <= CORNER_REACH.toPx()) {
                 index = nearest
@@ -246,7 +266,7 @@ private suspend fun PointerInputScope.dragCorners(
         onDrag = drag@{ change, delta ->
             if (index < 0) return@drag
             change.consume()
-            val box = fitImage(image, size.toSize())
+            val box = viewBox(image, size.toSize(), zoom())
             at = Pt(at.x + delta.x / box.width, at.y + delta.y / box.height)
             onMove(index, at)
         },
@@ -263,6 +283,7 @@ private suspend fun PointerInputScope.dragCorners(
  */
 private suspend fun PointerInputScope.dragPictures(
     image: ImageBitmap,
+    zoom: () -> Zoom,
     state: () -> EditorState,
     onSelect: (Long?) -> Unit,
     onGuides: (List<Guide>) -> Unit,
@@ -282,7 +303,7 @@ private suspend fun PointerInputScope.dragPictures(
     detectDragGestures(
         onDragStart = start@{ down ->
             val now = state()
-            val box = fitImage(image, size.toSize())
+            val box = viewBox(image, size.toSize(), zoom())
             val toWall = photoToWall(now)
             // While sizing, a handle of the selected picture first: it lies on the picture's own edge, where a drag
             // would move it.
@@ -296,7 +317,7 @@ private suspend fun PointerInputScope.dragPictures(
                     return@start
                 }
             }
-            val hit = pictureAt(now, image, size.toSize(), down)
+            val hit = pictureAt(now, box, down)
             if (hit == null) {
                 // Off the pictures, a drag moves the crop — when there is one to move.
                 if (now.wall.format.aspect != Aspect.ORIGINAL) {
@@ -330,7 +351,7 @@ private suspend fun PointerInputScope.dragPictures(
             resizing?.let { (picture, handle) ->
                 change.consume()
                 val toWall = photoToWall(state()) ?: return@drag
-                val point = toWall.map(fitImage(image, size.toSize()).toPhoto(change.position)) ?: return@drag
+                val point = toWall.map(viewBox(image, size.toSize(), zoom()).toPhoto(change.position)) ?: return@drag
                 // The handle moved by as much as the finger, which came down beside it, not on it.
                 val start = picture.bounds.handles[handle]
                 onResize(picture.id, picture, handle, Pt(start.x + point.x - grabbed.x, start.y + point.y - grabbed.y))
@@ -338,7 +359,7 @@ private suspend fun PointerInputScope.dragPictures(
             }
             if (cropping) {
                 change.consume()
-                val box = fitImage(image, size.toSize())
+                val box = viewBox(image, size.toSize(), zoom())
                 onMoveCrop(delta.x / box.width.toDouble(), delta.y / box.height.toDouble())
                 return@drag
             }
@@ -347,7 +368,7 @@ private suspend fun PointerInputScope.dragPictures(
             val now = state()
             val wallToPhoto = now.wall.calibration?.wallToPhoto() ?: return@drag
             val toWall = wallToPhoto.inverse() ?: return@drag
-            val box = fitImage(image, size.toSize())
+            val box = viewBox(image, size.toSize(), zoom())
             // A finger past the horizon has no place on the wall: the picture waits where it was.
             val point = toWall.map(box.toPhoto(change.position)) ?: return@drag
             val raw = from.copy(left = from.left + point.x - grabbed.x, top = from.top + point.y - grabbed.y)
@@ -392,10 +413,9 @@ private const val HANDLE_COUNT = 8
 /** The photo's 0..1 coordinates onto the wall's centimetres; null without a calibration. */
 private fun photoToWall(state: EditorState): Homography? = state.wall.calibration?.wallToPhoto()?.inverse()
 
-/** The frontmost picture under [at] on a canvas of [size]; null for none, or without a calibration. */
-private fun pictureAt(state: EditorState, image: ImageBitmap, size: Size, at: Offset): Long? {
+/** The frontmost picture under [at] with the photo in [box]; null for none, or without a calibration. */
+private fun pictureAt(state: EditorState, box: ImageBox, at: Offset): Long? {
     val homography = state.wall.calibration?.wallToPhoto() ?: return null
-    val box = fitImage(image, size)
     val point = Pt(at.x.toDouble(), at.y.toDouble())
     return state.wall.pictures.lastOrNull { picture ->
         val quad = picture.bounds.corners.map { corner ->
@@ -410,6 +430,68 @@ private fun pictureAt(state: EditorState, image: ImageBitmap, size: Size, at: Of
 internal class ImageBox(val left: Float, val top: Float, val width: Float, val height: Float) {
     fun toScreen(p: Pt) = Offset(left + (p.x * width).toFloat(), top + (p.y * height).toFloat())
     fun toPhoto(o: Offset) = Pt(((o.x - left) / width).toDouble(), ((o.y - top) / height).toDouble())
+}
+
+/**
+ * How the view is enlarged: [scale] times the photo fitted whole, moved [pan]
+ * from centred on the canvas. Along a way it does not fill yet it stays
+ * centred.
+ */
+internal data class Zoom(val scale: Float = 1f, val pan: Offset = Offset.Zero) {
+    /**
+     * The view after two fingers about [centroid] moved by [pan] and spread by
+     * [factor], with the photo in [box] on a canvas of [size]: the point of the
+     * photo between them stays between them, as far as the photo's edges let it.
+     */
+    fun pinched(box: ImageBox, size: Size, centroid: Offset, pan: Offset, factor: Float): Zoom {
+        val under = box.toPhoto(centroid)
+        val newScale = (scale * factor).coerceIn(1f, MAX_ZOOM)
+        val width = box.width / scale * newScale
+        val height = box.height / scale * newScale
+        val left = centroid.x + pan.x - (under.x * width).toFloat()
+        val top = centroid.y + pan.y - (under.y * height).toFloat()
+        return Zoom(
+            newScale,
+            Offset(panWithin(size.width, width, left - (size.width - width) / 2), panWithin(size.height, height, top - (size.height - height) / 2)),
+        )
+    }
+}
+
+/** A [pan] of a photo [zoomed] long on a canvas [length] long, kept so no edge of the photo comes inside the canvas's. */
+private fun panWithin(length: Float, zoomed: Float, pan: Float): Float {
+    val room = maxOf(0f, (zoomed - length) / 2)
+    return pan.coerceIn(-room, room)
+}
+
+/** Where the photo lies on a canvas of [size] as the view is enlarged by [zoom]. */
+private fun viewBox(image: ImageBitmap, size: Size, zoom: Zoom): ImageBox {
+    val fit = fitImage(image, size)
+    val width = fit.width * zoom.scale
+    val height = fit.height * zoom.scale
+    val left = (size.width - width) / 2 + panWithin(size.width, width, zoom.pan.x)
+    val top = (size.height - height) / 2 + panWithin(size.height, height, zoom.pan.y)
+    return ImageBox(left, top, width, height)
+}
+
+/**
+ * Two fingers or more: [onPinch] told where they were, how far they moved and
+ * how much they spread, and what they do kept from every other gesture — a
+ * picture being dragged lets go as the second finger comes down.
+ */
+private suspend fun PointerInputScope.pinch(onPinch: (centroid: Offset, pan: Offset, factor: Float) -> Unit) {
+    awaitEachGesture {
+        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+        do {
+            // Ahead of the other gestures, so a pinch is never also a tap or a drag.
+            val event = awaitPointerEvent(PointerEventPass.Initial)
+            if (event.changes.count { it.pressed } >= 2) {
+                val factor = event.calculateZoom()
+                val pan = event.calculatePan()
+                if (factor != 1f || pan != Offset.Zero) onPinch(event.calculateCentroid(useCurrent = false), pan, factor)
+                event.changes.forEach { it.consume() }
+            }
+        } while (event.changes.any { it.pressed })
+    }
 }
 
 private fun fitImage(image: ImageBitmap, size: Size): ImageBox {
