@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A framed picture hanging on a nail: a cord to the nail, a frame, a
+     landscape in it. White on the shared blue plate, inside the 66dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M40,40 L54,29 L68,40" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,29m-2.5,0a2.5,2.5 0,1 1,5 0a2.5,2.5 0,1 1,-5 0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M32,40h44v36h-44z M37,45v26h34v-26z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M39,69 L49,56 L55,63 L60,58 L69,69 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M62,51m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0" />
+</vector>
