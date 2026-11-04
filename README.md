@@ -26,7 +26,9 @@ Work in progress: what it is to do is in [docs/SPEC.md](docs/SPEC.md).
 - **Undo and redo** step through every change of the wall; a drag is one
   step.
 - **Kept**: the work is written after every change and is there as it was
-  at the next start.
+  at the next start. One draft is kept apart from it, by hand: Save draft,
+  under the wall and in the ⋮ menu, and Open draft; New wall starts over and leaves the draft
+  as it is.
 
 ## Build
 

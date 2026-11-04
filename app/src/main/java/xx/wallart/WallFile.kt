@@ -26,5 +26,8 @@ class WallFile(private val file: File) {
     companion object {
         /** The work as it is, written after every change and read back at the next start. */
         fun session(context: Context) = WallFile(File(context.filesDir, "session.json"))
+
+        /** The one draft, written and opened by hand only. Its photos are the same files the work's are. */
+        fun draft(context: Context) = WallFile(File(context.filesDir, "draft.json"))
     }
 }

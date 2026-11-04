@@ -183,6 +183,20 @@ fun DialogDismissButton(text: String, onClick: () -> Unit) {
     }
 }
 
+/** A question before a step that loses something: [confirm] takes it, Cancel does not. */
+@Composable
+fun ConfirmDialog(title: String, text: String, confirm: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(text) },
+        dismissButton = { DialogDismissButton(stringResource(R.string.cancel), onDismiss) },
+        confirmButton = {
+            Button(onClick = onConfirm, contentPadding = DIALOG_BUTTON_PADDING) { Text(confirm, maxLines = 1) }
+        },
+    )
+}
+
 /** Every drop-down menu in the app: a raised card with an outline, so it stands off the screen behind it in both themes. */
 @Composable
 fun AppMenu(expanded: Boolean, onDismissRequest: () -> Unit, content: @Composable ColumnScope.() -> Unit) {

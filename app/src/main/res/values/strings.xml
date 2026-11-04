@@ -38,4 +38,13 @@
     <string name="calibrate_first">Calibrate the wall first</string>
     <string name="undo">Undo</string>
     <string name="redo">Redo</string>
+    <string name="new_wall">New wall</string>
+    <string name="new_wall_question">Start a new wall</string>
+    <string name="save_draft">Save draft</string>
+    <string name="open_draft">Open draft</string>
+    <string name="draft_saved">Draft saved</string>
+    <string name="draft_not_saved">The draft could not be saved</string>
+    <string name="work_lost_warning">The current work will be gone</string>
+    <string name="open">Open</string>
+    <string name="start">Start</string>
 </resources>

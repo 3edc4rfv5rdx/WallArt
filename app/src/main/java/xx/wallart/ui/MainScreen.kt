@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
@@ -72,11 +73,14 @@ fun MainScreen(vm: WallViewModel, onExit: () -> Unit, onAbout: () -> Unit) {
     }
 }
 
+/** The height of the row under the wall that holds Save draft. */
+private val BOTTOM_PANEL_HEIGHT = 64.dp
+
 /** What the photo being picked is for. */
 private enum class Pick { WALL, NEW_PICTURE, ART, FRAME }
 
 /** The dialog open over the editor, if any. */
-private enum class Dialog { NONE, SIZE, FRAME_COLOR }
+private enum class Dialog { NONE, SIZE, FRAME_COLOR, NEW_WALL, OPEN_DRAFT }
 
 /** The selected picture's tools, in the pencil's menu. */
 private enum class PictureTool(@param:StringRes val text: Int) {
@@ -118,6 +122,10 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
         TopBar(
             state,
             onExit = onExit,
+            // Asked first only when there is work to lose.
+            onNewWall = { if (state.hasWork) dialog = Dialog.NEW_WALL else vm.newWall() },
+            onSaveDraft = vm::saveDraft,
+            onOpenDraft = { if (state.hasWork) dialog = Dialog.OPEN_DRAFT else vm.openDraft() },
             onUndo = vm::undo,
             onRedo = vm::redo,
             onChooseWall = { choosePhoto(Pick.WALL) },
@@ -157,7 +165,8 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
             }
             if (state.busy) CircularProgressIndicator()
         }
-        state.calibrating?.let { edit ->
+        val edit = state.calibrating
+        if (edit != null) {
             CalibrationBar(
                 edit,
                 onWidth = vm::setWidthText,
@@ -165,11 +174,37 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
                 onCancel = vm::cancelCalibration,
                 onDone = vm::applyCalibration,
             )
+        } else if (state.hasWork) {
+            // Nothing else wants the room under the wall: the work is put aside as the draft from here.
+            Box(Modifier.fillMaxWidth().height(BOTTOM_PANEL_HEIGHT), contentAlignment = Alignment.Center) {
+                // Off while the draft holds this very wall: nothing to save.
+                Button(onClick = vm::saveDraft, enabled = !state.busy && state.wall != state.draft) {
+                    Text(stringResource(R.string.save_draft))
+                }
+            }
         }
     }
 
     val picture = state.selectedPicture
     when {
+        dialog == Dialog.NEW_WALL -> ConfirmDialog(
+            title = "${stringResource(R.string.new_wall_question)}?",
+            text = stringResource(R.string.work_lost_warning),
+            confirm = stringResource(R.string.start),
+            onDismiss = { dialog = Dialog.NONE },
+        ) {
+            dialog = Dialog.NONE
+            vm.newWall()
+        }
+        dialog == Dialog.OPEN_DRAFT -> ConfirmDialog(
+            title = "${stringResource(R.string.open_draft)}?",
+            text = stringResource(R.string.work_lost_warning),
+            confirm = stringResource(R.string.open),
+            onDismiss = { dialog = Dialog.NONE },
+        ) {
+            dialog = Dialog.NONE
+            vm.openDraft()
+        }
         picture == null || dialog == Dialog.NONE -> Unit
         dialog == Dialog.SIZE -> PictureSizeDialog(picture, onDismiss = { dialog = Dialog.NONE }) { w, h, m ->
             vm.setSize(w, h, m)
@@ -190,6 +225,9 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
 private fun TopBar(
     state: EditorState,
     onExit: () -> Unit,
+    onNewWall: () -> Unit,
+    onSaveDraft: () -> Unit,
+    onOpenDraft: () -> Unit,
     onUndo: () -> Unit,
     onRedo: () -> Unit,
     onChooseWall: () -> Unit,
@@ -234,6 +272,20 @@ private fun TopBar(
         Box {
             MoreButton(onClick = { menu = true })
             AppMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                val draft = state.draft
+                AppMenuItem(stringResource(R.string.new_wall), enabled = !state.busy && state.hasWork) {
+                    menu = false
+                    onNewWall()
+                }
+                // Each only while it would change something: the draft as it is already, or the work already the draft.
+                AppMenuItem(stringResource(R.string.save_draft), enabled = !state.busy && state.hasWork && state.wall != draft) {
+                    menu = false
+                    onSaveDraft()
+                }
+                AppMenuItem(stringResource(R.string.open_draft), enabled = !state.busy && draft != null && state.wall != draft) {
+                    menu = false
+                    onOpenDraft()
+                }
                 AppMenuItem(stringResource(R.string.wall_photo), enabled = !state.busy) {
                     menu = false
                     onChooseWall()

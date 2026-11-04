@@ -38,4 +38,13 @@
     <string name="calibrate_first">Сначала откалибруйте стену</string>
     <string name="undo">Отменить</string>
     <string name="redo">Повторить</string>
+    <string name="new_wall">Новая стена</string>
+    <string name="new_wall_question">Начать новую стену</string>
+    <string name="save_draft">Сохранить черновик</string>
+    <string name="open_draft">Открыть черновик</string>
+    <string name="draft_saved">Черновик сохранён</string>
+    <string name="draft_not_saved">Не удалось сохранить черновик</string>
+    <string name="work_lost_warning">Текущая работа пропадёт</string>
+    <string name="open">Открыть</string>
+    <string name="start">Начать</string>
 </resources>

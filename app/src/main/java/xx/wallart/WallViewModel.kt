@@ -52,8 +52,8 @@ enum class PhotoSlot { ART, FRAME }
  * Everything the editor shows. [photos] are the wall's photos as shown, by
  * the name the wall keeps them by; [calibrating] the calibration under way,
  * if one is; [selected] the picture the tools work on; whether there are
- * steps to [canUndo] and [canRedo]. Busy from the start: the work kept is
- * read back first.
+ * steps to [canUndo] and [canRedo]; the [draft] as it is kept, if one is.
+ * Busy from the start: the work kept is read back first.
  */
 data class EditorState(
     val wall: Wall = Wall(),
@@ -63,7 +63,10 @@ data class EditorState(
     val busy: Boolean = true,
     val canUndo: Boolean = false,
     val canRedo: Boolean = false,
+    val draft: Wall? = null,
 ) {
+    /** Whether there is work to lose: a wall with anything on it. */
+    val hasWork: Boolean get() = wall != Wall()
     /** The wall's photo as shown; null while there is none, or it cannot be read. */
     val image: ImageBitmap? get() = wall.photo?.let { photos[it] }
 
@@ -83,6 +86,7 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
     val notices = _notices.receiveAsFlow()
 
     private val session = WallFile.session(application)
+    private val draftFile = WallFile.draft(application)
 
     /** The walls before and after the one shown, a step for each change of it. */
     private val history = History<Wall>()
@@ -102,21 +106,55 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * The work as it was left, with its photos; the photos no longer part of
-     * it deleted — nothing else can name them at a start, as the steps to
-     * undo are not kept. Not when the work kept cannot be read: what it
-     * names is not known, and its photos are all there is left of it.
+     * The work as it was left, with its photos, and the draft; the photos
+     * neither of them is made of deleted — nothing else can name them at a
+     * start, as the steps to undo are not kept. Not when either cannot be
+     * read: what it names is not known, and its photos are all there is left
+     * of it.
      */
     private suspend fun restore() {
         val context = getApplication<Application>()
-        val (wall, photos) = withContext(Dispatchers.IO) {
+        val (kept, draft, photos) = withContext(Dispatchers.IO) {
             val kept = session.read()
-            if (kept != null || !session.exists()) Photos.sweep(context, kept?.photoNames.orEmpty())
+            val draft = draftFile.read()
+            val readable = (kept != null || !session.exists()) && (draft != null || !draftFile.exists())
+            if (readable) Photos.sweep(context, kept?.photoNames.orEmpty() + draft?.photoNames.orEmpty())
             val wall = kept ?: Wall()
-            wall to loadPhotos(context, wall)
+            Triple(wall, draft, loadPhotos(context, wall))
         }
         restored = true
-        _state.update { it.copy(wall = wall, photos = photos, busy = false) }
+        _state.update { it.copy(wall = kept, photos = photos, draft = draft, busy = false) }
+    }
+
+    /** The wall as it is kept as the draft, over the one there was. */
+    fun saveDraft() {
+        val wall = _state.value.wall
+        viewModelScope.launch {
+            val saved = withContext(Dispatchers.IO) { runCatching { draftFile.write(wall) }.isSuccess }
+            if (saved) {
+                _state.update { it.copy(draft = wall) }
+                say(R.string.draft_saved)
+            } else {
+                say(R.string.draft_not_saved)
+            }
+        }
+    }
+
+    /** The draft in place of the work, with no steps back to the work it replaced. */
+    fun openDraft() {
+        val draft = _state.value.draft ?: return
+        startOver(draft)
+    }
+
+    /** An empty wall in place of the work; the draft stays as it is. */
+    fun newWall() = startOver(Wall())
+
+    private fun startOver(wall: Wall) {
+        val state = _state.value
+        if (dragStart != null || state.busy) return
+        history.clear()
+        _state.value = pruned(withHistory(state.copy(wall = wall, calibrating = null, selected = null)))
+        loadMissingPhotos()
     }
 
     /** The wall written each time it changes and then stays as it is for a moment. */

@@ -38,4 +38,13 @@
     <string name="calibrate_first">Спочатку відкалібруйте стіну</string>
     <string name="undo">Скасувати</string>
     <string name="redo">Повторити</string>
+    <string name="new_wall">Нова стіна</string>
+    <string name="new_wall_question">Почати нову стіну</string>
+    <string name="save_draft">Зберегти чернетку</string>
+    <string name="open_draft">Відкрити чернетку</string>
+    <string name="draft_saved">Чернетку збережено</string>
+    <string name="draft_not_saved">Не вдалося зберегти чернетку</string>
+    <string name="work_lost_warning">Поточна робота зникне</string>
+    <string name="open">Відкрити</string>
+    <string name="start">Почати</string>
 </resources>
