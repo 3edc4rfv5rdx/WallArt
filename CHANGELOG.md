@@ -3,6 +3,7 @@
 > N=new feature, E=error fix, F=fine-tune, R=refactor, I=infrastructure
 
 ## Unreleased
+- I: The icon previews are kept out of git
 - I: Build number bumped
 - E: Stories left the presets: either way round it was Full HD, which Format took for it
 - F: Share sends Full HD's long side, 1920

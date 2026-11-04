@@ -31,3 +31,5 @@ OUT/
 # puts there on purpose.
 /ADD/*
 !/ADD/gradle-version-wiring.kts
+icon-preview.png
+icon-preview.svg
