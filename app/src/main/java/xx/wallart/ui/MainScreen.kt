@@ -125,6 +125,7 @@ private enum class PictureTool(@param:StringRes val text: Int) {
 @Composable
 private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -> Unit, onAbout: () -> Unit) {
     val state by vm.state.collectAsState()
+    val rotation = rememberDeviceRotation()
     // Saveable: the system's picker can outlive the activity.
     var pick by rememberSaveable { mutableStateOf(Pick.WALL) }
     var dialog by rememberSaveable { mutableStateOf(Dialog.NONE) }
@@ -189,19 +190,22 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
         Box(Modifier.weight(1f).fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
             val image = state.image
             if (image != null) {
-                WallCanvas(
-                    state,
-                    image,
-                    onMoveCorner = vm::moveCorner,
-                    onSelect = vm::select,
-                    onMovePicture = vm::movePicture,
-                    onDragStart = vm::beginDrag,
-                    onDragEnd = vm::endDrag,
-                    onMoveCrop = vm::moveCrop,
-                    onResizePicture = vm::resizePicture,
-                    sizing = sizing && state.selected != null,
-                    modifier = Modifier.fillMaxSize(),
-                )
+                // Only the wall turns with the phone; the bars, the hint and the dialogs stay upright.
+                RotatedFrame(rotation, Modifier.fillMaxSize()) {
+                    WallCanvas(
+                        state,
+                        image,
+                        onMoveCorner = vm::moveCorner,
+                        onSelect = vm::select,
+                        onMovePicture = vm::movePicture,
+                        onDragStart = vm::beginDrag,
+                        onDragEnd = vm::endDrag,
+                        onMoveCrop = vm::moveCrop,
+                        onResizePicture = vm::resizePicture,
+                        sizing = sizing && state.selected != null,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
                 // A photo the wall has but does not show yet — after a step back — is on its way, not to be chosen.
             } else if (!state.busy && state.wall.photo == null) {
                 Button(onClick = { choosePhoto(Pick.WALL) }) { Text(stringResource(R.string.choose_wall_photo)) }

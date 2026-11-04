@@ -3,6 +3,7 @@
 > N=new feature, E=error fix, F=fine-tune, R=refactor, I=infrastructure
 
 ## Unreleased
+- N: The wall turns with the phone by its sensor, the bars and dialogs staying upright
 - N: While the view is enlarged one finger moves it, off the pictures and the calibration's corners
 - F: The frame width steps by 1 cm, as the artwork's sides do
 - N: Two fingers enlarge and move the view for a closer look, editing and calibrating alike
