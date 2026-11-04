@@ -49,7 +49,7 @@ internal class PicturePainter {
     private val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
-    private val matrix = Matrix()
+    private val perspective = Matrix()
     private val path = Path()
 
     /** The editor's pictures over its photo, [selected] ringed in [accent]. */
@@ -146,9 +146,9 @@ internal class PicturePainter {
     private fun drawBitmapInto(canvas: Canvas, bitmap: Bitmap, src: RectF, dst: List<Offset>) {
         val from = floatArrayOf(src.left, src.top, src.right, src.top, src.right, src.bottom, src.left, src.bottom)
         val to = FloatArray(8).also { dst.forEachIndexed { i, o -> it[2 * i] = o.x; it[2 * i + 1] = o.y } }
-        if (!matrix.setPolyToPoly(from, 0, to, 0, 4)) return
+        if (!perspective.setPolyToPoly(from, 0, to, 0, 4)) return
         canvas.withClip(quadPath(dst)) {
-            concat(matrix)
+            concat(perspective)
             drawBitmap(bitmap, 0f, 0f, bitmapPaint)
         }
     }
