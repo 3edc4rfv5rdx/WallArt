@@ -30,17 +30,29 @@ A standalone app with no code shared with PhotoCollage (apart from the shared
     is set in cm;
   - **artwork:** a photo of the picture itself, lying over the frame, inset
     by the moulding width.
-- The picture's size is set in centimetres (the frame's outer size), its
-  position by dragging it across the wall.
+- The picture's size is set in centimetres as the artwork's size and the
+  moulding width; the frame's outer size is shown in the dialog's title.
+  Standard artwork sizes (10×15 to 70×100, A4) in a drop-down, the
+  orientation, and − / + steppers by each field.
+- "Add picture" asks the size first, then a photo of the artwork or none.
+- Its position is set by dragging it across the wall.
+- "Resize" in the picture's menu shows handles: a corner keeps the artwork's
+  proportions, a side's middle changes that side alone; whole centimetres,
+  near a standard size it takes it. The size pill shows only then.
+- "Duplicate" puts a copy to the right, at the gap the picture already has.
 - All pictures live in the wall's flat coordinate system in centimetres and
   are projected onto the photo through the calibration when drawn.
 - Alignment for a gallery wall (by edge, by centre, equal gaps).
-- A shadow on the wall — a checkbox.
+- A shadow on the wall — a checkbox in the ⋮ menu, for all pictures.
 - Add, remove, replace the frame's or the artwork's photo, change the order.
 
 ## Saving
 
-- The finished photo with a choice of size (long side), as in PhotoCollage.
+- The finished photo in a Format, as in PhotoCollage: orientation, shape
+  (the original one shows its ratio, as 4:3), size and preset. A new shape
+  takes the size nearest its crop's real one; applied on Done.
+- A shape other than the original shows its crop frame on the wall, which is
+  moved by dragging off the pictures; what is outside is cut off.
 - Saved to `Pictures/WallArt` through MediaStore, with no permissions.
 - Share.
 
@@ -64,7 +76,7 @@ A standalone app with no code shared with PhotoCollage (apart from the shared
 
 ## Order of work
 
-1. Project skeleton: scripts, Gradle, theme, settings, menu, updater and About.
-2. Wall: picking the photo, calibration by 4 corners with a size in cm.
-3. Pictures: frame and artwork, size in cm, moving, shadow, gallery.
-4. Saving and Share, autosave and the draft, undo/redo.
+1. + Project skeleton: scripts, Gradle, theme, settings, menu, updater and About.
+2. + Wall: picking the photo, calibration by 4 corners with a size in cm.
+3. + Pictures: frame and artwork, size in cm, moving, shadow, gallery.
+4. + Saving and Share, autosave and the draft, undo/redo.

@@ -7,7 +7,7 @@ true to size and in the wall's perspective.**
 ![Kotlin](https://img.shields.io/badge/Kotlin-Compose-7F52FF?logo=kotlin&logoColor=white)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
-Work in progress: what it is to do is in [docs/SPEC.md](docs/SPEC.md).
+The specification is in [docs/SPEC.md](docs/SPEC.md).
 
 ## Features
 
@@ -17,20 +17,16 @@ Work in progress: what it is to do is in [docs/SPEC.md](docs/SPEC.md).
   centimetres. That sets the wall's perspective and scale at once. A grid
   across the rectangle shows whether the perspective is right, and a loupe
   shows the corner under the finger.
-- **Pictures**: an artwork in a frame, as many as wanted, drawn in the
-  wall's perspective and true to size. Add picture asks its size first —
-  the artwork's and the frame's, standard or typed — then a photo of the
-  artwork, or none for an empty mount to plan a gallery with. Tap one to select it, drag it across
-  the wall; near another one's edge, centre or a gap already between two,
-  it snaps to it, with a guide line and the gap in centimetres. Resize in
-  the pencil menu puts out handles and the artwork's size over it: a corner
-  sizes it with its shape kept, a side's middle one way only, in whole
-  centimetres, snapping to standard sizes; Back puts them away. The pencil
-  sets its artwork; the artwork's size in centimetres and way round — typed,
-  stepped by − and +, or a standard size from a drop-down — and the frame's
-  width round it, the size outside shown large; a frame colour or a photo of a frame; its place in the stack; or
-  Duplicate, for a copy beside it to try a gallery with.
-  Shadow in the ⋮ menu lets them cast a soft shadow.
+- **Pictures**: an artwork in a frame, as many as wanted, in the wall's
+  perspective and true to size.
+  - Size: the artwork's, standard or typed, stepped by − and +, and the
+    frame's width; the outer size shown large. Add picture asks it first,
+    then a photo of the artwork or none.
+  - Drag across the wall; it snaps to another one's edge, centre or gap,
+    with a guide and the gap in centimetres.
+  - Resize: corner handles keep the shape, side handles change one way.
+  - Frame colour or photo, stack order, Duplicate for a gallery wall.
+  - Shadow in the ⋮ menu.
 - **Format**: the saved image's way round, shape (the photo's own, 1:1,
   4:5, 3:4, 2:3, 9:16, A4), size and preset (Instagram, Full HD, 10×15,
   A4 300 dpi and more), as in PhotoCollage. Any shape but the photo's own
