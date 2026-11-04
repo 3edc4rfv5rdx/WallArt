@@ -60,4 +60,15 @@ class FormatTest {
         assertEquals(Preset.FULL_HD, format.preset())
         assertNull(Format().preset())
     }
+
+    @Test
+    fun `a photo's shape is named by the ratio of small sides nearest it`() {
+        assertEquals("4:3", ratioLabel(4000, 3000))
+        assertEquals("3:4", ratioLabel(3024, 4032))
+        // A few pixels short of 16:9 is still 16:9.
+        assertEquals("16:9", ratioLabel(4000, 2252))
+        assertEquals("1:1", ratioLabel(2000, 2000))
+        // A panorama no small ratio comes near.
+        assertEquals("4.27:1", ratioLabel(8000, 1875))
+    }
 }

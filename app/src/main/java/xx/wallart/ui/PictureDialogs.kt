@@ -16,7 +16,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -134,7 +134,7 @@ private fun CmField(label: String, value: String, step: Double, allowZero: Boole
         return formatCm((Math.round((now + by) * 10) / 10.0).coerceAtLeast(floor))
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = { onChange(stepped(-step)) }) { Icon(Icons.Filled.Remove, contentDescription = stringResource(R.string.less)) }
+        FilledIconButton(onClick = { onChange(stepped(-step)) }) { Icon(Icons.Filled.Remove, contentDescription = stringResource(R.string.less)) }
         OutlinedTextField(
             value = value,
             onValueChange = onChange,
@@ -145,7 +145,7 @@ private fun CmField(label: String, value: String, step: Double, allowZero: Boole
             textStyle = MaterialTheme.typography.headlineSmall,
             modifier = Modifier.weight(1f),
         )
-        IconButton(onClick = { onChange(stepped(step)) }) { Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.more)) }
+        FilledIconButton(onClick = { onChange(stepped(step)) }) { Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.more)) }
     }
 }
 

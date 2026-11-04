@@ -36,7 +36,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
@@ -183,8 +182,15 @@ private val DIALOG_BUTTON_PADDING = PaddingValues(horizontal = 16.dp, vertical =
 
 /** A dialog's way out — Cancel and the like — filled with the accent like the main button, not a pale wash of it. */
 @Composable
-fun DialogDismissButton(text: String, onClick: () -> Unit) {
-    Button(onClick = onClick, contentPadding = DIALOG_BUTTON_PADDING) {
+fun DialogDismissButton(text: String, onClick: () -> Unit) = DialogButton(text, onClick = onClick)
+
+/**
+ * Every button in a dialog, its way out and its main step alike: filled with
+ * the accent, padded the same; dimmed and still while not [enabled].
+ */
+@Composable
+fun DialogButton(text: String, enabled: Boolean = true, onClick: () -> Unit) {
+    Button(onClick = onClick, enabled = enabled, contentPadding = DIALOG_BUTTON_PADDING) {
         Text(text, maxLines = 1)
     }
 }
@@ -198,7 +204,7 @@ fun ConfirmDialog(title: String, text: String, confirm: String, onDismiss: () ->
         text = { Text(text) },
         dismissButton = { DialogDismissButton(stringResource(R.string.cancel), onDismiss) },
         confirmButton = {
-            Button(onClick = onConfirm, contentPadding = DIALOG_BUTTON_PADDING) { Text(confirm, maxLines = 1) }
+            DialogButton(confirm, onClick = onConfirm)
         },
     )
 }
@@ -327,7 +333,8 @@ fun <T> DropdownRow(
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
         Box {
-            OutlinedButton(onClick = { open = true }, enabled = enabled, modifier = Modifier.width(DROPDOWN_WIDTH)) {
+            // Filled with the accent, as every button in a dialog is.
+            Button(onClick = { open = true }, enabled = enabled, modifier = Modifier.width(DROPDOWN_WIDTH)) {
                 Text(value, maxLines = 1)
             }
             AppMenu(expanded = open, onDismissRequest = { open = false }) {

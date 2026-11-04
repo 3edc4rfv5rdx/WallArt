@@ -1,5 +1,6 @@
 package xx.wallart
 
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -122,4 +123,23 @@ data class Format(
     private companion object {
         const val EPSILON = 1e-9
     }
+}
+
+/** The ratios photos and screens are known by, long side first. */
+private val KNOWN_RATIOS = listOf(1 to 1, 5 to 4, 4 to 3, 3 to 2, 16 to 10, 16 to 9, 2 to 1, 21 to 9)
+
+/** How far off a photo's shape a ratio named for it may be: the photos of one camera differ by a few pixels. */
+private const val RATIO_TOLERANCE = 0.01
+
+/**
+ * The shape of a [width] × [height] photo as a ratio, width first: the known
+ * one — 4:3, 16:9, 3:2 and the like — it is within [RATIO_TOLERANCE] of, or
+ * the width over the height to two places, as 4.27:1.
+ */
+fun ratioLabel(width: Int, height: Int): String {
+    val r = width.toDouble() / height
+    val near = KNOWN_RATIOS.flatMap { (long, short) -> listOf(long to short, short to long) }
+        .minBy { (a, b) -> abs(a.toDouble() / b - r) }
+        .takeIf { (a, b) -> abs(a.toDouble() / b - r) / r <= RATIO_TOLERANCE }
+    return if (near != null) "${near.first}:${near.second}" else "${"%.2f".format(Locale.ROOT, r)}:1"
 }

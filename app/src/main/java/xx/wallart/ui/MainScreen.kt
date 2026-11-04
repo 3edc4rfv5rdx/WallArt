@@ -32,7 +32,6 @@ import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -241,20 +240,20 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
         ) { spec ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 // An empty mount, to plan a gallery with before the artworks are to hand.
-                OutlinedButton(onClick = {
+                DialogButton(stringResource(R.string.without_photo), enabled = spec != null) {
                     spec?.let {
                         newSpec = it
                         vm.addEmptyPicture(it)
                     }
                     dialog = Dialog.NONE
-                }, enabled = spec != null) { Text(stringResource(R.string.without_photo)) }
-                Button(onClick = {
+                }
+                DialogButton(stringResource(R.string.choose_photo), enabled = spec != null) {
                     spec?.let {
                         newSpec = it
                         choosePhoto(Pick.NEW_PICTURE)
                     }
                     dialog = Dialog.NONE
-                }, enabled = spec != null) { Text(stringResource(R.string.choose_photo)) }
+                }
             }
         }
         dialog == Dialog.NEW_WALL -> ConfirmDialog(
@@ -281,10 +280,10 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
             picture.spec,
             onDismiss = { dialog = Dialog.NONE },
         ) { spec ->
-            Button(onClick = {
+            DialogButton(stringResource(R.string.done), enabled = spec != null) {
                 spec?.let(vm::setArtSize)
                 dialog = Dialog.NONE
-            }, enabled = spec != null) { Text(stringResource(R.string.done)) }
+            }
         }
         dialog == Dialog.FRAME_COLOR -> FrameColorDialog(
             current = picture.frameColor.takeIf { picture.framePhoto == null },
@@ -436,7 +435,7 @@ private fun CalibrationBar(
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
             DialogDismissButton(stringResource(R.string.cancel), onCancel)
-            Button(onClick = onDone, enabled = edit.result != null) { Text(stringResource(R.string.done)) }
+            DialogButton(stringResource(R.string.done), enabled = edit.result != null, onClick = onDone)
         }
     }
 }

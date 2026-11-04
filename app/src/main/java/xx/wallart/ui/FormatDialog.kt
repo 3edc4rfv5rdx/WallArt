@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,6 +20,7 @@ import xx.wallart.Aspect
 import xx.wallart.Format
 import xx.wallart.Preset
 import xx.wallart.R
+import xx.wallart.ratioLabel
 
 /**
  * The format the image is saved in, for a photo [photoW] × [photoH]: its way
@@ -34,7 +34,8 @@ fun FormatDialog(format: Format, photoW: Int, photoH: Int, onDismiss: () -> Unit
     val photoRatio = photoW.toDouble() / photoH
     val portrait = stringResource(R.string.portrait)
     val landscape = stringResource(R.string.landscape)
-    val original = stringResource(R.string.original)
+    // The photo's own shape named with it, so the original says what it is.
+    val original = "${stringResource(R.string.original)} ${ratioLabel(photoW, photoH)}"
     // The original shape is the photo's own way round, and offers no other.
     val isLandscape = if (edit.aspect == Aspect.ORIGINAL) photoW > photoH else edit.landscape
     AlertDialog(
@@ -79,7 +80,7 @@ fun FormatDialog(format: Format, photoW: Int, photoH: Int, onDismiss: () -> Unit
             }
         },
         dismissButton = { DialogDismissButton(stringResource(R.string.cancel), onDismiss) },
-        confirmButton = { Button(onClick = { onDone(edit) }) { Text(stringResource(R.string.done)) } },
+        confirmButton = { DialogButton(stringResource(R.string.done)) { onDone(edit) } },
     )
 }
 

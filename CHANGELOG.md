@@ -3,6 +3,8 @@
 > N=new feature, E=error fix, F=fine-tune, R=refactor, I=infrastructure
 
 ## Unreleased
+- F: Every button in a dialog, the drop-down fields and the − and + steppers are filled with the accent
+- F: The original shape in Format names the photo's own ratio, as 4:3
 - N: Add picture asks the new picture's size first, as Size does, then its artwork's photo or none, for an empty mount to plan a gallery with
 - N: Resize in the pencil menu puts out handles and the artwork's size in centimetres, a corner sizing it with its shape kept and a side's middle one way only, in whole centimetres, snapping to standard sizes
 - N: Duplicate in the pencil menu puts a copy of the picture beside it, at the gap it has to its neighbour or 10 cm
