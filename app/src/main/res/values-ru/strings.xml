@@ -15,4 +15,13 @@
     <string name="theme_light">Светлая</string>
     <string name="theme_dark">Тёмная</string>
     <string name="language_system">Системный</string>
+    <string name="choose_wall_photo">Выбрать фото стены</string>
+    <string name="wall_photo">Фото стены</string>
+    <string name="calibrate">Калибровка</string>
+    <string name="calibrate_hint">Поставьте углы на прямоугольник известного размера на стене</string>
+    <string name="width">Ширина</string>
+    <string name="height">Высота</string>
+    <string name="cm">см</string>
+    <string name="done">Готово</string>
+    <string name="photo_unreadable">Не удалось прочитать фото</string>
 </resources>

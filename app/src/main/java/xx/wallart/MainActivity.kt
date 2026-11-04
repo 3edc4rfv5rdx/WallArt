@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -32,6 +33,8 @@ val UPDATER_CONFIG = UpdaterConfig(appKey = "wallart", repo = "WallArt")
 
 class MainActivity : ComponentActivity() {
 
+    private val viewModel by viewModels<WallViewModel>()
+
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(localizedContext(newBase))
     }
@@ -53,7 +56,7 @@ class MainActivity : ComponentActivity() {
 
             WallArtTheme(themeMode, accentIndex) {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    MainScreen(onExit = ::finish, onAbout = ::showAbout)
+                    MainScreen(vm = viewModel, onExit = ::finish, onAbout = ::showAbout)
                 }
             }
         }

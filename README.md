@@ -9,6 +9,15 @@ true to size and in the wall's perspective.**
 
 Work in progress: what it is to do is in [docs/SPEC.md](docs/SPEC.md).
 
+## Features
+
+- **Wall**: a photo of the wall from the gallery, copied into the app.
+- **Calibration**: four corners dragged onto a rectangle of known size on the
+  wall — a door, a cabinet, a sheet of A4 — and its width and height typed in
+  centimetres. That sets the wall's perspective and scale at once. A grid
+  across the rectangle shows whether the perspective is right, and a loupe
+  shows the corner under the finger.
+
 ## Build
 
 The numbered scripts are the PRJ build set; `AGENTS.md` describes them.

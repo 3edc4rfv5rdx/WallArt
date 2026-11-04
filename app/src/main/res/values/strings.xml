@@ -15,4 +15,13 @@
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
     <string name="language_system">System</string>
+    <string name="choose_wall_photo">Choose a wall photo</string>
+    <string name="wall_photo">Wall photo</string>
+    <string name="calibrate">Calibrate</string>
+    <string name="calibrate_hint">Drag the corners onto a rectangle of known size on the wall</string>
+    <string name="width">Width</string>
+    <string name="height">Height</string>
+    <string name="cm">cm</string>
+    <string name="done">Done</string>
+    <string name="photo_unreadable">The photo could not be read</string>
 </resources>
