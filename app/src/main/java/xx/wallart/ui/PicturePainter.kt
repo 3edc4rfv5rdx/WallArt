@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.withClip
 import xx.wallart.CmRect
 import xx.wallart.EditorState
 import xx.wallart.Homography
@@ -80,21 +81,20 @@ internal class PicturePainter {
         after: (Long, List<Offset>) -> Unit = { _, _ -> },
     ) {
         // Clipped to the photo: a picture hung past its edge is cut off there, as in the image saved.
-        canvas.save()
-        canvas.clipRect(box.left, box.top, box.left + box.width, box.top + box.height)
-        for (picture in wall.pictures) {
-            fun project(rect: CmRect): List<Offset>? = rect.corners.map { homography.map(it)?.let(box::toScreen) ?: return null }
-            // A picture any corner of which is past the horizon cannot be drawn whole: it is not drawn.
-            val outer = project(picture.bounds) ?: continue
-            val opening = project(picture.opening) ?: continue
-            if (wall.shadow) drawShadow(canvas, picture.bounds, ::project)
-            drawFrame(canvas, picture, outer, picture.framePhoto?.let(photo))
-            drawArt(canvas, picture, opening, picture.artPhoto?.let(photo))
-            outline(canvas, outer, Color.Black.copy(alpha = EDGE_ALPHA), edge)
-            outline(canvas, opening, Color.Black.copy(alpha = EDGE_ALPHA), edge)
-            after(picture.id, outer)
+        canvas.withClip(box.left, box.top, box.left + box.width, box.top + box.height) {
+            for (picture in wall.pictures) {
+                fun project(rect: CmRect): List<Offset>? = rect.corners.map { homography.map(it)?.let(box::toScreen) ?: return null }
+                // A picture any corner of which is past the horizon cannot be drawn whole: it is not drawn.
+                val outer = project(picture.bounds) ?: continue
+                val opening = project(picture.opening) ?: continue
+                if (wall.shadow) drawShadow(canvas, picture.bounds, ::project)
+                drawFrame(canvas, picture, outer, picture.framePhoto?.let(photo))
+                drawArt(canvas, picture, opening, picture.artPhoto?.let(photo))
+                outline(canvas, outer, Color.Black.copy(alpha = EDGE_ALPHA), edge)
+                outline(canvas, opening, Color.Black.copy(alpha = EDGE_ALPHA), edge)
+                after(picture.id, outer)
+            }
         }
-        canvas.restore()
     }
 
     /**
@@ -147,11 +147,10 @@ internal class PicturePainter {
         val from = floatArrayOf(src.left, src.top, src.right, src.top, src.right, src.bottom, src.left, src.bottom)
         val to = FloatArray(8).also { dst.forEachIndexed { i, o -> it[2 * i] = o.x; it[2 * i + 1] = o.y } }
         if (!matrix.setPolyToPoly(from, 0, to, 0, 4)) return
-        canvas.save()
-        canvas.clipPath(quadPath(dst))
-        canvas.concat(matrix)
-        canvas.drawBitmap(bitmap, 0f, 0f, bitmapPaint)
-        canvas.restore()
+        canvas.withClip(quadPath(dst)) {
+            concat(matrix)
+            drawBitmap(bitmap, 0f, 0f, bitmapPaint)
+        }
     }
 
     private fun outline(canvas: Canvas, quad: List<Offset>, color: Color, width: Float) {

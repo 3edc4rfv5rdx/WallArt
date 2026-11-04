@@ -3,6 +3,7 @@
 > N=new feature, E=error fix, F=fine-tune, R=refactor, I=infrastructure
 
 ## Unreleased
+- R: Lint's findings fixed: notices read through LocalResources, the KTX createBitmap and withClip
 - E: A calibration corner near the screen's edge is dragged instead of taken for the system's back gesture
 - N: The wall turns with the phone by its sensor, the bars and dialogs staying upright
 - N: While the view is enlarged one finger moves it, off the pictures and the calibration's corners

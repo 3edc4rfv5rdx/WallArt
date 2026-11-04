@@ -50,6 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -67,11 +68,12 @@ private enum class Screen { EDITOR, SETTINGS }
 @Composable
 fun MainScreen(vm: WallViewModel, onExit: () -> Unit, onAbout: () -> Unit) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     var screen by rememberSaveable { mutableStateOf(Screen.EDITOR) }
     // Said whichever screen is open.
     LaunchedEffect(vm) {
         vm.notices.collect { notice ->
-            val text = context.getString(notice.text)
+            val text = resources.getString(notice.text)
             val line = if (notice.tail.isEmpty()) text else "$text ${notice.tail}"
             Toast.makeText(context, line, Toast.LENGTH_LONG).show()
         }

@@ -10,6 +10,7 @@ import android.net.Uri
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
+import androidx.core.graphics.createBitmap
 import xx.wallart.ui.ImageBox
 import xx.wallart.ui.PicturePainter
 import java.io.File
@@ -60,7 +61,7 @@ object Export {
             "photo unreadable"
         }
         val image = try {
-            Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
+            createBitmap(outW, outH)
         } catch (e: Throwable) {
             photo.recycle()
             throw e
