@@ -26,20 +26,22 @@ enum class Aspect(val short: Double, val long: Double, val sizes: List<Int>, val
 }
 
 /**
- * A named standard: a shape, its way round and a size in one pick. Labels
- * are not translated: they are names. Every size is one its shape offers.
+ * A named standard: a shape and a size in one pick, either way round — the
+ * way the format already is. Labels are not translated: they are names; a
+ * [shaped] one is told apart by its shape, named after it as it is turned.
+ * Every size is one its shape offers.
  */
-enum class Preset(val label: String, val aspect: Aspect, val landscape: Boolean, val longSide: Int) {
-    INSTAGRAM_SQUARE("Instagram 1:1", Aspect.SQUARE, false, 1080),
-    INSTAGRAM_PORTRAIT("Instagram 4:5", Aspect.FOUR_FIVE, false, 1350),
-    STORIES("Stories 9:16", Aspect.NINE_SIXTEEN, false, 1920),
-    HD("HD", Aspect.NINE_SIXTEEN, true, 1280),
-    FULL_HD("Full HD", Aspect.NINE_SIXTEEN, true, 1920),
-    QHD("2K", Aspect.NINE_SIXTEEN, true, 2560),
-    UHD("4K", Aspect.NINE_SIXTEEN, true, 3840),
-    PHOTO_10X15("10×15 300 dpi", Aspect.TWO_THREE, true, 1800),
-    A4_150("A4 150 dpi", Aspect.A4, false, 1754),
-    A4_300("A4 300 dpi", Aspect.A4, false, 3508),
+enum class Preset(val label: String, val aspect: Aspect, val longSide: Int, val shaped: Boolean = false) {
+    INSTAGRAM_SQUARE("Instagram", Aspect.SQUARE, 1080, shaped = true),
+    INSTAGRAM_4_5("Instagram", Aspect.FOUR_FIVE, 1350, shaped = true),
+    STORIES("Stories", Aspect.NINE_SIXTEEN, 1920, shaped = true),
+    HD("HD", Aspect.NINE_SIXTEEN, 1280),
+    FULL_HD("Full HD", Aspect.NINE_SIXTEEN, 1920),
+    QHD("2K", Aspect.NINE_SIXTEEN, 2560),
+    UHD("4K", Aspect.NINE_SIXTEEN, 3840),
+    PHOTO_10X15("10×15 300 dpi", Aspect.TWO_THREE, 1800),
+    A4_150("A4 150 dpi", Aspect.A4, 1754),
+    A4_300("A4 300 dpi", Aspect.A4, 3508),
     ;
 
     init {
@@ -99,12 +101,12 @@ data class Format(
         return copy(longSide = aspect.sizes.sortedDescending().minBy { abs(it - real) })
     }
 
-    fun withPreset(preset: Preset): Format = copy(aspect = preset.aspect, landscape = preset.landscape, longSide = preset.longSide)
+    /** The format of [preset], [landscape] or not. */
+    fun withPreset(preset: Preset, landscape: Boolean): Format =
+        copy(aspect = preset.aspect, landscape = landscape, longSide = preset.longSide)
 
-    /** The preset this format makes, or null. A square is the same either way round. */
-    fun preset(): Preset? = Preset.entries.firstOrNull {
-        it.aspect == aspect && it.longSide == longSide && (it.landscape == landscape || aspect == Aspect.SQUARE)
-    }
+    /** The preset this format makes, either way round, or null. */
+    fun preset(): Preset? = Preset.entries.firstOrNull { it.aspect == aspect && it.longSide == longSide }
 
     /**
      * The crop moved by [dx], [dy] in the photo's 0..1 coordinates, kept on the

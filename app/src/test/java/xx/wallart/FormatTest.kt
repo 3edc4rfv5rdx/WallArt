@@ -54,10 +54,13 @@ class FormatTest {
     }
 
     @Test
-    fun `a preset sets shape, way round and size, and is known again`() {
-        val format = Format().withPreset(Preset.FULL_HD)
+    fun `a preset sets shape and size either way round, and is known again`() {
+        val format = Format().withPreset(Preset.FULL_HD, landscape = true)
         assertEquals(Format(Aspect.NINE_SIXTEEN, landscape = true, longSide = 1920), format)
         assertEquals(Preset.FULL_HD, format.preset())
+        val upright = Format().withPreset(Preset.A4_300, landscape = false)
+        assertEquals(Format(Aspect.A4, landscape = false, longSide = 3508), upright)
+        assertEquals(Preset.A4_300, upright.copy(landscape = true).preset())
         assertNull(Format().preset())
     }
 

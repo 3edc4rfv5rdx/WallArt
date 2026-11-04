@@ -24,9 +24,9 @@ import xx.wallart.ratioLabel
 
 /**
  * The format the image is saved in, for a photo [photoW] × [photoH]: its way
- * round, shape, size and preset, as PhotoCollage's. A new shape or way round
- * takes the size nearest what its crop of the photo really is. Done applies
- * it as one step; Cancel leaves the format as it was.
+ * round, shape, size and preset, as PhotoCollage's. A new shape takes the
+ * size nearest what its crop of the photo really is; a new way round keeps
+ * it. Done applies it as one step; Cancel leaves the format as it was.
  */
 @Composable
 fun FormatDialog(format: Format, photoW: Int, photoH: Int, onDismiss: () -> Unit, onDone: (Format) -> Unit) {
@@ -49,7 +49,10 @@ fun FormatDialog(format: Format, photoW: Int, photoH: Int, onDismiss: () -> Unit
                     options = listOf(false, true),
                     optionLabel = { if (it) landscape else portrait },
                     enabled = edit.aspect != Aspect.ORIGINAL && edit.aspect != Aspect.SQUARE,
-                ) { edit = edit.copy(landscape = it).fitted(photoW, photoH) }
+                ) {
+                    // The size stays: only a new shape takes the one nearest its crop.
+                    edit = edit.copy(landscape = it)
+                }
                 DropdownRow(
                     label = stringResource(R.string.shape),
                     value = edit.aspect.label(isLandscape, original),
@@ -73,10 +76,10 @@ fun FormatDialog(format: Format, photoW: Int, photoH: Int, onDismiss: () -> Unit
                 )
                 DropdownRow(
                     label = stringResource(R.string.preset),
-                    value = edit.preset()?.label ?: NO_VALUE,
+                    value = edit.preset()?.label(isLandscape, original) ?: NO_VALUE,
                     options = Preset.entries,
-                    optionLabel = { it.label },
-                ) { edit = edit.withPreset(it) }
+                    optionLabel = { it.label(isLandscape, original) },
+                ) { edit = edit.withPreset(it, isLandscape) }
             }
         },
         dismissButton = { DialogDismissButton(stringResource(R.string.cancel), onDismiss) },
@@ -97,6 +100,10 @@ private fun Aspect.label(landscape: Boolean, original: String): String {
     }
     return if (landscape) "$long:$short" else "$short:$long"
 }
+
+/** The preset's name, and its shape the [landscape] way round when that is what tells it apart. */
+private fun Preset.label(landscape: Boolean, original: String): String =
+    if (shaped) "$label ${aspect.label(landscape, original)}" else label
 
 private fun sizeText(size: Pair<Int, Int>): String = "${size.first}×${size.second}"
 

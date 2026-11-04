@@ -3,6 +3,8 @@
 > N=new feature, E=error fix, F=fine-tune, R=refactor, I=infrastructure
 
 ## Unreleased
+- F: A new way round in Format keeps the size; only a new shape takes the one nearest its crop
+- E: A preset keeps the way round chosen, so A4 and the rest can be landscape too
 - E: Frame and artwork photos are drawn through their perspective again, not the canvas's own matrix
 - R: Lint's findings fixed: notices read through LocalResources, the KTX createBitmap and withClip
 - E: A calibration corner near the screen's edge is dragged instead of taken for the system's back gesture
