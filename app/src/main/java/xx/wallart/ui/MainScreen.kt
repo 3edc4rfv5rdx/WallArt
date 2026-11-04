@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Redo
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
@@ -116,6 +118,8 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
         TopBar(
             state,
             onExit = onExit,
+            onUndo = vm::undo,
+            onRedo = vm::redo,
             onChooseWall = { choosePhoto(Pick.WALL) },
             onCalibrate = vm::startCalibration,
             onAddPicture = { if (!vm.calibrateFirst()) choosePhoto(Pick.NEW_PICTURE) },
@@ -143,9 +147,12 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
                     onMoveCorner = vm::moveCorner,
                     onSelect = vm::select,
                     onMovePicture = vm::movePicture,
+                    onDragStart = vm::beginDrag,
+                    onDragEnd = vm::endDrag,
                     modifier = Modifier.fillMaxSize(),
                 )
-            } else if (!state.busy) {
+                // A photo the wall has but does not show yet — after a step back — is on its way, not to be chosen.
+            } else if (!state.busy && state.wall.photo == null) {
                 Button(onClick = { choosePhoto(Pick.WALL) }) { Text(stringResource(R.string.choose_wall_photo)) }
             }
             if (state.busy) CircularProgressIndicator()
@@ -183,6 +190,8 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
 private fun TopBar(
     state: EditorState,
     onExit: () -> Unit,
+    onUndo: () -> Unit,
+    onRedo: () -> Unit,
     onChooseWall: () -> Unit,
     onCalibrate: () -> Unit,
     onAddPicture: () -> Unit,
@@ -197,6 +206,9 @@ private fun TopBar(
     Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         LargeIconButton(Icons.Filled.Close, stringResource(R.string.close), onExit)
         Spacer(Modifier.weight(1f))
+        val stepping = state.calibrating == null && !state.busy
+        LargeIconButton(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.undo), onUndo, enabled = stepping && state.canUndo)
+        LargeIconButton(Icons.AutoMirrored.Filled.Redo, stringResource(R.string.redo), onRedo, enabled = stepping && state.canRedo)
         LargeIconButton(Icons.Filled.Straighten, stringResource(R.string.calibrate), onCalibrate, enabled = editing)
         LargeIconButton(Icons.Filled.AddPhotoAlternate, stringResource(R.string.add_picture), onAddPicture, enabled = editing)
         val selected = state.selectedPicture

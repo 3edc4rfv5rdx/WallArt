@@ -51,8 +51,9 @@ enum class PhotoSlot { ART, FRAME }
 /**
  * Everything the editor shows. [photos] are the wall's photos as shown, by
  * the name the wall keeps them by; [calibrating] the calibration under way,
- * if one is; [selected] the picture the tools work on. Busy from the start:
- * the work kept is read back first.
+ * if one is; [selected] the picture the tools work on; whether there are
+ * steps to [canUndo] and [canRedo]. Busy from the start: the work kept is
+ * read back first.
  */
 data class EditorState(
     val wall: Wall = Wall(),
@@ -60,6 +61,8 @@ data class EditorState(
     val calibrating: CalibrationEdit? = null,
     val selected: Long? = null,
     val busy: Boolean = true,
+    val canUndo: Boolean = false,
+    val canRedo: Boolean = false,
 ) {
     /** The wall's photo as shown; null while there is none, or it cannot be read. */
     val image: ImageBitmap? get() = wall.photo?.let { photos[it] }
@@ -80,6 +83,12 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
     val notices = _notices.receiveAsFlow()
 
     private val session = WallFile.session(application)
+
+    /** The walls before and after the one shown, a step for each change of it. */
+    private val history = History<Wall>()
+
+    /** The wall as a picture's drag found it, while one is under way: the drag goes in as one step. */
+    private var dragStart: Wall? = null
 
     /** Whether the work kept has been read back: till then there is nothing of the user's to write. */
     @Volatile
@@ -187,7 +196,22 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Picture [id] with its top left corner at [left], [top] on the wall. */
+    /** A picture's drag starting: what it moves is one step, however many moves it makes. */
+    fun beginDrag() {
+        dragStart = _state.value.wall
+    }
+
+    /** A picture's drag let go: the wall it started from a step back, if it moved anything. */
+    fun endDrag() {
+        val start = dragStart ?: return
+        dragStart = null
+        if (_state.value.wall != start) {
+            history.record(start)
+            _state.value = withHistory(_state.value)
+        }
+    }
+
+    /** Picture [id] with its top left corner at [left], [top] on the wall; a step only with the drag it is part of. */
     fun movePicture(id: Long, left: Double, top: Double) {
         _state.update { state ->
             state.copy(wall = state.wall.updated(id) { it.copy(bounds = it.bounds.copy(left = left, top = top)) })
@@ -201,18 +225,34 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
     /** The selected picture [by] places to the front (positive) or the back. */
     fun restackSelected(by: Int) {
         val id = _state.value.selected ?: return
-        _state.update { it.copy(wall = it.wall.restacked(id, by)) }
+        commit { it.copy(wall = it.wall.restacked(id, by)) }
     }
 
     fun removeSelected() {
-        _state.update { state ->
-            val id = state.selected ?: return@update state
+        commit { state ->
+            val id = state.selected ?: return@commit state
             state.copy(wall = state.wall.copy(pictures = state.wall.pictures.filterNot { it.id == id }), selected = null)
         }
     }
 
     fun toggleShadow() {
-        _state.update { it.copy(wall = it.wall.copy(shadow = !it.wall.shadow)) }
+        commit { it.copy(wall = it.wall.copy(shadow = !it.wall.shadow)) }
+    }
+
+    /** The wall a step back; not while a drag, a calibration or a photo coming in is under way. */
+    fun undo() = step(history::undo)
+
+    /** The wall a step forward, on the same terms as [undo]. */
+    fun redo() = step(history::redo)
+
+    private fun step(take: (Wall) -> Wall?) {
+        val state = _state.value
+        if (dragStart != null || state.calibrating != null || state.busy) return
+        val wall = take(state.wall) ?: return
+        // The selection kept while its picture is still there.
+        val selected = state.selected?.takeIf { id -> wall.pictures.any { it.id == id } }
+        _state.value = pruned(withHistory(state.copy(wall = wall, selected = selected)))
+        loadMissingPhotos()
     }
 
     /** Whether the wall still needs calibrating before a picture can go on it; if so, says so and starts it. */
@@ -248,8 +288,8 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
 
     /** The calibration under way onto the wall, when it makes one. */
     fun applyCalibration() {
-        _state.update { state ->
-            val result = state.calibrating?.result ?: return@update state
+        commit { state ->
+            val result = state.calibrating?.result ?: return@commit state
             state.copy(wall = state.wall.copy(calibration = result), calibrating = null)
         }
     }
@@ -260,9 +300,46 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun updateSelected(change: (Picture) -> Picture) {
-        _state.update { state ->
-            val id = state.selected ?: return@update state
+        commit { state ->
+            val id = state.selected ?: return@commit state
             state.copy(wall = state.wall.updated(id, change))
+        }
+    }
+
+    /**
+     * [transform] applied to the state, the wall before it a step back if it
+     * changed the wall. On the main thread only, as every caller is: the
+     * step is recorded beside the change, not inside an update that may run
+     * twice.
+     */
+    private fun commit(transform: (EditorState) -> EditorState) {
+        val old = _state.value
+        val next = transform(old)
+        if (next.wall != old.wall) history.record(old.wall)
+        _state.value = pruned(withHistory(next))
+    }
+
+    private fun withHistory(state: EditorState) = state.copy(canUndo = history.canUndo, canRedo = history.canRedo)
+
+    /** [state] holding the photos its wall shows and no others: a step back to the others reads them again. */
+    private fun pruned(state: EditorState): EditorState {
+        val names = state.wall.photoNames
+        return if (state.photos.keys.all { it in names }) state else state.copy(photos = state.photos.filterKeys { it in names })
+    }
+
+    /** The photos the wall shows but the state does not hold yet — after a step back or forward — read in. */
+    private fun loadMissingPhotos() {
+        val state = _state.value
+        val missing = state.wall.photoNames - state.photos.keys
+        if (missing.isEmpty()) return
+        val context = getApplication<Application>()
+        val wallPhoto = state.wall.photo
+        viewModelScope.launch {
+            val loaded = withContext(Dispatchers.IO) {
+                missing.mapNotNull { name -> Photos.loadShown(context, name, wall = name == wallPhoto)?.let { name to it.asImageBitmap() } }
+            }
+            // Only those the wall still shows: it may have moved on meanwhile.
+            _state.update { now -> now.copy(photos = now.photos + loaded.filter { it.first in now.wall.photoNames }) }
         }
     }
 
@@ -283,7 +360,7 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
                 _state.update { it.copy(busy = false) }
                 say(R.string.photo_unreadable)
             } else {
-                _state.update { apply(it, result).copy(busy = false) }
+                commit { apply(it, result).copy(busy = false) }
             }
         }
     }

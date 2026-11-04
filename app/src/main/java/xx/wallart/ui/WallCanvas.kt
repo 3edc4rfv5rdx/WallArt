@@ -77,6 +77,8 @@ fun WallCanvas(
     onMoveCorner: (Int, Pt) -> Unit,
     onSelect: (Long?) -> Unit,
     onMovePicture: (Long, Double, Double) -> Unit,
+    onDragStart: () -> Unit,
+    onDragEnd: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val cm = stringResource(R.string.cm)
@@ -91,6 +93,8 @@ fun WallCanvas(
     val moveCorner by rememberUpdatedState(onMoveCorner)
     val select by rememberUpdatedState(onSelect)
     val movePicture by rememberUpdatedState(onMovePicture)
+    val dragStart by rememberUpdatedState(onDragStart)
+    val dragEnd by rememberUpdatedState(onDragEnd)
     val painter = remember { PicturePainter() }
 
     val gestures = if (calibrating != null) {
@@ -103,7 +107,14 @@ fun WallCanvas(
                 detectTapGestures { down -> select(pictureAt(current, image, size.toSize(), down)) }
             }
             .pointerInput(image) {
-                dragPictures(image, { current }, select, { guides = it }) { id, left, top -> movePicture(id, left, top) }
+                dragPictures(
+                    image,
+                    { current },
+                    onSelect = select,
+                    onGuides = { guides = it },
+                    onBegin = { dragStart() },
+                    onEnd = { dragEnd() },
+                ) { id, left, top -> movePicture(id, left, top) }
             }
     }
 
@@ -195,13 +206,16 @@ private suspend fun PointerInputScope.dragCorners(
  * finger across the wall — the point under the finger stays under it, the
  * picture keeping its size in centimetres as it goes — and snaps to the
  * others' edges, centres and gaps when it comes within [SNAP_REACH] of one on
- * screen, [onGuides] told what it is held at.
+ * screen, [onGuides] told what it is held at. [onBegin] and [onEnd] bracket
+ * a drag that took a picture.
  */
 private suspend fun PointerInputScope.dragPictures(
     image: ImageBitmap,
     state: () -> EditorState,
     onSelect: (Long?) -> Unit,
     onGuides: (List<Guide>) -> Unit,
+    onBegin: () -> Unit,
+    onEnd: () -> Unit,
     onMove: (Long, Double, Double) -> Unit,
 ) {
     var id: Long? = null
@@ -217,12 +231,15 @@ private suspend fun PointerInputScope.dragPictures(
             grabbed = point
             from = now.wall.pictures.first { it.id == hit }.bounds
             onSelect(hit)
+            onBegin()
         },
         onDragEnd = {
+            if (id != null) onEnd()
             id = null
             onGuides(emptyList())
         },
         onDragCancel = {
+            if (id != null) onEnd()
             id = null
             onGuides(emptyList())
         },

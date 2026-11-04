@@ -23,6 +23,8 @@ Work in progress: what it is to do is in [docs/SPEC.md](docs/SPEC.md).
   it snaps to it, with a guide line and the gap in centimetres. The pencil sets its artwork, its outer size and frame width in
   centimetres, a frame colour or a photo of a frame, and its place in the
   stack. Shadow in the ⋮ menu lets them cast a soft shadow.
+- **Undo and redo** step through every change of the wall; a drag is one
+  step.
 - **Kept**: the work is written after every change and is there as it was
   at the next start.
 

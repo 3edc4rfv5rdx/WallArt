@@ -36,4 +36,6 @@
     <string name="remove_picture">Видалити картину</string>
     <string name="shadow">Тінь</string>
     <string name="calibrate_first">Спочатку відкалібруйте стіну</string>
+    <string name="undo">Скасувати</string>
+    <string name="redo">Повторити</string>
 </resources>

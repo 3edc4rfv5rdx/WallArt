@@ -36,4 +36,6 @@
     <string name="remove_picture">Remove picture</string>
     <string name="shadow">Shadow</string>
     <string name="calibrate_first">Calibrate the wall first</string>
+    <string name="undo">Undo</string>
+    <string name="redo">Redo</string>
 </resources>
