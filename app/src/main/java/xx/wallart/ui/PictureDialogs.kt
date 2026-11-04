@@ -15,7 +15,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -24,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -34,7 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import xx.wallart.ArtSize
-import xx.wallart.Picture
+import xx.wallart.ArtSpec
 import xx.wallart.STANDARD_ART_SIZES
 import xx.wallart.R
 import xx.wallart.formatCm
@@ -54,24 +54,24 @@ private const val SIDE_STEP = 1.0
 private const val MOULDING_STEP = 0.5
 
 /**
- * The picture's artwork size and frame width in centimetres — each typed or
- * stepped by − and + — its way round, and the standard sizes to pick from;
- * the size it comes to outside the frame large in the title. Done only while
- * they make a picture.
+ * Under [title], a picture's artwork size and frame width in centimetres, starting at
+ * [initial] — each typed or stepped by − and + — its way round, and the
+ * standard sizes to pick from; the size it comes to outside the frame large
+ * in the title. [buttons] are given the size as it stands, null while it
+ * makes no picture.
  */
 @Composable
-fun PictureSizeDialog(picture: Picture, onDismiss: () -> Unit, onDone: (Double, Double, Double) -> Unit) {
-    val opening = picture.opening
-    var width by rememberSaveable { mutableStateOf(formatCm(opening.width)) }
-    var height by rememberSaveable { mutableStateOf(formatCm(opening.height)) }
+fun PictureSizeDialog(title: String, initial: ArtSpec, onDismiss: () -> Unit, buttons: @Composable (ArtSpec?) -> Unit) {
+    var width by rememberSaveable { mutableStateOf(formatCm(initial.widthCm)) }
+    var height by rememberSaveable { mutableStateOf(formatCm(initial.heightCm)) }
     // Zero is a frame too: an artwork hung bare.
-    var moulding by rememberSaveable { mutableStateOf(formatCm(picture.mouldingCm)) }
+    var moulding by rememberSaveable { mutableStateOf(formatCm(initial.mouldingCm)) }
     val w = parseCm(width)
     val h = parseCm(height)
     val m = parseCm(moulding, allowZero = true)
-    val size = if (w != null && h != null && m != null && isArtSize(w, h, m)) Triple(w, h, m) else null
-    // The way round is what the sides typed make it; while one is not a number, what the picture was.
-    val landscape = if (w != null && h != null) w > h else opening.width > opening.height
+    val size = if (w != null && h != null && m != null && isArtSize(w, h, m)) ArtSpec(w, h, m) else null
+    // The way round is what the sides typed make it; while one is not a number, what it started as.
+    val landscape = if (w != null && h != null) w > h else initial.widthCm > initial.heightCm
     val cm = stringResource(R.string.cm)
     val portraitLabel = stringResource(R.string.portrait)
     val landscapeLabel = stringResource(R.string.landscape)
@@ -79,7 +79,7 @@ fun PictureSizeDialog(picture: Picture, onDismiss: () -> Unit, onDone: (Double, 
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.size), modifier = Modifier.weight(1f))
+                Text(title, modifier = Modifier.weight(1f))
                 // The size outside the frame: what the wall gets.
                 val outside = size?.let { (a, b, c) -> "${formatCm(a + 2 * c)}×${formatCm(b + 2 * c)} $cm" } ?: NO_VALUE
                 Text(outside, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
@@ -111,11 +111,7 @@ fun PictureSizeDialog(picture: Picture, onDismiss: () -> Unit, onDone: (Double, 
             }
         },
         dismissButton = { DialogDismissButton(stringResource(R.string.cancel), onDismiss) },
-        confirmButton = {
-            Button(onClick = { size?.let { (a, b, c) -> onDone(a, b, c) } }, enabled = size != null) {
-                Text(stringResource(R.string.done))
-            }
-        },
+        confirmButton = { buttons(size) },
     )
 }
 
@@ -180,3 +176,9 @@ fun FrameColorDialog(current: Int?, onDismiss: () -> Unit, onPick: (Int) -> Unit
         confirmButton = { DialogDismissButton(stringResource(R.string.cancel), onDismiss) },
     )
 }
+
+/** A picture's size kept across the activity being made again, side by side. */
+val ArtSpecSaver = Saver<ArtSpec, List<Double>>(
+    save = { listOf(it.widthCm, it.heightCm, it.mouldingCm) },
+    restore = { ArtSpec(it[0], it[1], it[2]) },
+)

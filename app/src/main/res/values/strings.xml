@@ -65,4 +65,7 @@
     <string name="more">More</string>
     <string name="duplicate">Duplicate</string>
     <string name="resize">Resize</string>
+    <string name="new_picture">New picture</string>
+    <string name="without_photo">Without photo</string>
+    <string name="choose_photo">Choose photo</string>
 </resources>

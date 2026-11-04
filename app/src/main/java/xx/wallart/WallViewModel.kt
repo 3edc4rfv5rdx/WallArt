@@ -250,19 +250,22 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    /**
-     * A new picture round the artwork at [uri], in the middle of the photo,
-     * its height following the artwork's shape; selected, to be worked on.
-     */
-    fun addPicture(uri: Uri) = importing({ Photos.import(getApplication(), uri, wall = false) }) { state, (name, bitmap) ->
-        val calibration = state.wall.calibration ?: return@importing state
+    /** A new picture of [spec] round the artwork at [uri], in the middle of the photo; selected, to be worked on. */
+    fun addPicture(spec: ArtSpec, uri: Uri) = importing({ Photos.import(getApplication(), uri, wall = false) }) { state, (name, bitmap) ->
+        placed(state, spec, name, bitmap.asImageBitmap())
+    }
+
+    /** A new picture of [spec] with no artwork yet — an empty mount, to plan with — in the middle of the photo; selected. */
+    fun addEmptyPicture(spec: ArtSpec) {
+        commit { placed(it, spec, null, null) }
+    }
+
+    private fun placed(state: EditorState, spec: ArtSpec, name: String?, bitmap: ImageBitmap?): EditorState {
+        val calibration = state.wall.calibration ?: return state
         val id = state.wall.nextId()
-        val picture = newPicture(id, photoCentreOnWall(calibration), bitmap.height.toDouble() / bitmap.width, name)
-        state.copy(
-            wall = state.wall.copy(pictures = state.wall.pictures + picture),
-            photos = state.photos + (name to bitmap.asImageBitmap()),
-            selected = id,
-        )
+        val picture = newPicture(id, photoCentreOnWall(calibration), spec, name)
+        val photos = if (name != null && bitmap != null) state.photos + (name to bitmap) else state.photos
+        return state.copy(wall = state.wall.copy(pictures = state.wall.pictures + picture), photos = photos, selected = id)
     }
 
     /** [uri] as the [slot] photo of the selected picture; its size stays, the artwork cropped to it. */
@@ -284,10 +287,10 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
     /** The selected picture's frame in [color] (ARGB), its frame photo, if any, dropped for it. */
     fun setFrameColor(color: Int) = updateSelected { it.copy(frameColor = color, framePhoto = null) }
 
-    /** The selected picture round an artwork [widthCm] × [heightCm] in a frame [mouldingCm] wide; kept centred where it was. */
-    fun setArtSize(widthCm: Double, heightCm: Double, mouldingCm: Double) {
-        if (!isArtSize(widthCm, heightCm, mouldingCm)) return
-        updateSelected { it.withArtSize(widthCm, heightCm, mouldingCm) }
+    /** The selected picture round the artwork and in the frame [spec] says; kept centred where it was. */
+    fun setArtSize(spec: ArtSpec) {
+        if (!isArtSize(spec.widthCm, spec.heightCm, spec.mouldingCm)) return
+        updateSelected { it.withArtSize(spec.widthCm, spec.heightCm, spec.mouldingCm) }
     }
 
     /** A picture's drag starting: what it moves is one step, however many moves it makes. */

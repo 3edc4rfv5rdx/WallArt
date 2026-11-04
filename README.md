@@ -18,7 +18,9 @@ Work in progress: what it is to do is in [docs/SPEC.md](docs/SPEC.md).
   across the rectangle shows whether the perspective is right, and a loupe
   shows the corner under the finger.
 - **Pictures**: an artwork in a frame, as many as wanted, drawn in the
-  wall's perspective and true to size. Tap one to select it, drag it across
+  wall's perspective and true to size. Add picture asks its size first —
+  the artwork's and the frame's, standard or typed — then a photo of the
+  artwork, or none for an empty mount to plan a gallery with. Tap one to select it, drag it across
   the wall; near another one's edge, centre or a gap already between two,
   it snaps to it, with a guide line and the gap in centimetres. Resize in
   the pencil menu puts out handles and the artwork's size over it: a corner

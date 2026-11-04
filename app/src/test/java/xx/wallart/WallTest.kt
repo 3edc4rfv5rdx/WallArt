@@ -33,12 +33,12 @@ class WallTest {
     }
 
     @Test
-    fun `a new picture is as wide as asked, as tall as its artwork makes it, centred`() {
-        val picture = newPicture(7, Pt(100.0, 150.0), artAspect = 1.5, artPhoto = "a.jpg", widthCm = 50.0)
-        // 44 cm of artwork across, 66 down, a 3 cm frame round it.
-        assertEquals(CmRect(75.0, 114.0, 50.0, 72.0), picture.bounds)
-        assertEquals(CmRect(78.0, 117.0, 44.0, 66.0), picture.opening)
+    fun `a new picture is its artwork and frame, centred where asked`() {
+        val picture = newPicture(7, Pt(100.0, 150.0), ArtSpec(30.0, 40.0, 3.0), artPhoto = "a.jpg")
+        assertEquals(CmRect(82.0, 127.0, 36.0, 46.0), picture.bounds)
+        assertEquals(ArtSpec(30.0, 40.0, 3.0), picture.spec)
         assertEquals("a.jpg", picture.artPhoto)
+        assertNull(newPicture(8, Pt(0.0, 0.0), DEFAULT_ART_SPEC, artPhoto = null).artPhoto)
     }
 
     @Test

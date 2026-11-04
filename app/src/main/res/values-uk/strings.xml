@@ -65,4 +65,7 @@
     <string name="more">Більше</string>
     <string name="duplicate">Дублювати</string>
     <string name="resize">Змінити розмір</string>
+    <string name="new_picture">Нова картина</string>
+    <string name="without_photo">Без фото</string>
+    <string name="choose_photo">Вибрати фото</string>
 </resources>

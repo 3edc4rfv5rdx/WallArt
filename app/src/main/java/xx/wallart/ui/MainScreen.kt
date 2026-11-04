@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,6 +50,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import xx.wallart.CalibrationEdit
+import xx.wallart.DEFAULT_ART_SPEC
 import xx.wallart.EditorState
 import xx.wallart.PhotoSlot
 import xx.wallart.R
@@ -97,7 +99,7 @@ private val BOTTOM_PANEL_HEIGHT = 64.dp
 private enum class Pick { WALL, NEW_PICTURE, ART, FRAME }
 
 /** The dialog open over the editor, if any. */
-private enum class Dialog { NONE, SIZE, FRAME_COLOR, NEW_WALL, OPEN_DRAFT, FORMAT }
+private enum class Dialog { NONE, NEW_PICTURE, SIZE, FRAME_COLOR, NEW_WALL, OPEN_DRAFT, FORMAT }
 
 /** The selected picture's tools, in the pencil's menu. */
 private enum class PictureTool(@param:StringRes val text: Int) {
@@ -119,6 +121,8 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
     // Saveable: the system's picker can outlive the activity.
     var pick by rememberSaveable { mutableStateOf(Pick.WALL) }
     var dialog by rememberSaveable { mutableStateOf(Dialog.NONE) }
+    // The size the next new picture is offered at: the one the last was given, kept while its photo is picked.
+    var newSpec by rememberSaveable(stateSaver = ArtSpecSaver) { mutableStateOf(DEFAULT_ART_SPEC) }
     // The selected picture's handles out, to size it by: till Back, or the selection goes.
     var sizing by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(state.selected) { sizing = false }
@@ -126,7 +130,7 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
         if (uri != null) {
             when (pick) {
                 Pick.WALL -> vm.importPhoto(uri)
-                Pick.NEW_PICTURE -> vm.addPicture(uri)
+                Pick.NEW_PICTURE -> vm.addPicture(newSpec, uri)
                 Pick.ART -> vm.setPicturePhoto(PhotoSlot.ART, uri)
                 Pick.FRAME -> vm.setPicturePhoto(PhotoSlot.FRAME, uri)
             }
@@ -157,7 +161,7 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
             onRedo = vm::redo,
             onChooseWall = { choosePhoto(Pick.WALL) },
             onCalibrate = vm::startCalibration,
-            onAddPicture = { if (!vm.calibrateFirst()) choosePhoto(Pick.NEW_PICTURE) },
+            onAddPicture = { if (!vm.calibrateFirst()) dialog = Dialog.NEW_PICTURE },
             onPictureTool = { tool ->
                 when (tool) {
                     PictureTool.ART -> choosePhoto(Pick.ART)
@@ -230,6 +234,29 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
                 }
             }
         }
+        dialog == Dialog.NEW_PICTURE -> PictureSizeDialog(
+            stringResource(R.string.new_picture),
+            newSpec,
+            onDismiss = { dialog = Dialog.NONE },
+        ) { spec ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // An empty mount, to plan a gallery with before the artworks are to hand.
+                OutlinedButton(onClick = {
+                    spec?.let {
+                        newSpec = it
+                        vm.addEmptyPicture(it)
+                    }
+                    dialog = Dialog.NONE
+                }, enabled = spec != null) { Text(stringResource(R.string.without_photo)) }
+                Button(onClick = {
+                    spec?.let {
+                        newSpec = it
+                        choosePhoto(Pick.NEW_PICTURE)
+                    }
+                    dialog = Dialog.NONE
+                }, enabled = spec != null) { Text(stringResource(R.string.choose_photo)) }
+            }
+        }
         dialog == Dialog.NEW_WALL -> ConfirmDialog(
             title = "${stringResource(R.string.new_wall_question)}?",
             text = stringResource(R.string.work_lost_warning),
@@ -249,9 +276,15 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
             vm.openDraft()
         }
         picture == null || dialog == Dialog.NONE -> Unit
-        dialog == Dialog.SIZE -> PictureSizeDialog(picture, onDismiss = { dialog = Dialog.NONE }) { w, h, m ->
-            vm.setArtSize(w, h, m)
-            dialog = Dialog.NONE
+        dialog == Dialog.SIZE -> PictureSizeDialog(
+            stringResource(R.string.size),
+            picture.spec,
+            onDismiss = { dialog = Dialog.NONE },
+        ) { spec ->
+            Button(onClick = {
+                spec?.let(vm::setArtSize)
+                dialog = Dialog.NONE
+            }, enabled = spec != null) { Text(stringResource(R.string.done)) }
         }
         dialog == Dialog.FRAME_COLOR -> FrameColorDialog(
             current = picture.frameColor.takeIf { picture.framePhoto == null },

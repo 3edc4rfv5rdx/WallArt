@@ -53,6 +53,9 @@ data class Picture(
     /** Where the artwork shows: inside the moulding. */
     val opening get() = bounds.inset(mouldingCm)
 
+    /** Its artwork's size and its frame's width. */
+    val spec get() = ArtSpec(opening.width, opening.height, mouldingCm)
+
     /**
      * The picture with its [corner] (0 top left, clockwise) dragged to [to] on
      * the wall, the corner across from it staying where it is: the artwork
@@ -144,13 +147,18 @@ const val STANDARD_SNAP_CM = 1.5
 
 /** The gap a copy of a picture is put at beside it, when it has none to a neighbour to go by. */
 const val DEFAULT_GAP_CM = 10.0
-const val DEFAULT_PICTURE_WIDTH_CM = 50.0
 
 /** A dark wood, near black: the frame most pictures are tried in first. */
 const val DEFAULT_FRAME_COLOR = 0xFF2B2622.toInt()
 
 /** Whether an artwork [width] × [height] in a frame [moulding] wide is a picture: both there, the frame none or some. */
 fun isArtSize(width: Double, height: Double, moulding: Double): Boolean = width > 0 && height > 0 && moulding >= 0
+
+/** A picture's size as it is chosen: its artwork [widthCm] × [heightCm], in a frame [mouldingCm] wide. */
+data class ArtSpec(val widthCm: Double, val heightCm: Double, val mouldingCm: Double)
+
+/** What a new picture is offered at first: a common print in a common frame. */
+val DEFAULT_ART_SPEC = ArtSpec(30.0, 40.0, DEFAULT_MOULDING_CM)
 
 /**
  * An artwork's standard size, short side by long, in centimetres, as frames
@@ -180,15 +188,12 @@ fun standardSizeOf(width: Double, height: Double): ArtSize? = STANDARD_ART_SIZES
     it.short == minOf(width, height) && it.long == maxOf(width, height)
 }
 
-/**
- * A new picture [widthCm] wide round an artwork of [artAspect] (height over
- * width), centred on [centre]; the height follows from the artwork.
- */
-fun newPicture(id: Long, centre: Pt, artAspect: Double, artPhoto: String?, widthCm: Double = DEFAULT_PICTURE_WIDTH_CM): Picture {
-    val moulding = DEFAULT_MOULDING_CM
-    val height = (widthCm - 2 * moulding) * artAspect + 2 * moulding
-    val bounds = CmRect(centre.x - widthCm / 2, centre.y - height / 2, widthCm, height)
-    return Picture(id = id, bounds = bounds, mouldingCm = moulding, artPhoto = artPhoto)
+/** A new picture of [spec] centred on [centre], round the artwork [artPhoto] — or an empty mount, without one. */
+fun newPicture(id: Long, centre: Pt, spec: ArtSpec, artPhoto: String?): Picture {
+    val width = spec.widthCm + 2 * spec.mouldingCm
+    val height = spec.heightCm + 2 * spec.mouldingCm
+    val bounds = CmRect(centre.x - width / 2, centre.y - height / 2, width, height)
+    return Picture(id = id, bounds = bounds, mouldingCm = spec.mouldingCm, artPhoto = artPhoto)
 }
 
 /**
