@@ -284,14 +284,10 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
     /** The selected picture's frame in [color] (ARGB), its frame photo, if any, dropped for it. */
     fun setFrameColor(color: Int) = updateSelected { it.copy(frameColor = color, framePhoto = null) }
 
-    /** The selected picture [widthCm] × [heightCm] outside, with a [mouldingCm] frame; kept centred where it was. */
-    fun setSize(widthCm: Double, heightCm: Double, mouldingCm: Double) {
-        if (!isPictureSize(widthCm, heightCm, mouldingCm)) return
-        updateSelected {
-            val b = it.bounds
-            val bounds = CmRect(b.left + (b.width - widthCm) / 2, b.top + (b.height - heightCm) / 2, widthCm, heightCm)
-            it.copy(bounds = bounds, mouldingCm = mouldingCm)
-        }
+    /** The selected picture round an artwork [widthCm] × [heightCm] in a frame [mouldingCm] wide; kept centred where it was. */
+    fun setArtSize(widthCm: Double, heightCm: Double, mouldingCm: Double) {
+        if (!isArtSize(widthCm, heightCm, mouldingCm)) return
+        updateSelected { it.withArtSize(widthCm, heightCm, mouldingCm) }
     }
 
     /** A picture's drag starting: what it moves is one step, however many moves it makes. */

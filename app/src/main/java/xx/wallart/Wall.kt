@@ -50,6 +50,17 @@ data class Picture(
 ) {
     /** Where the artwork shows: inside the moulding. */
     val opening get() = bounds.inset(mouldingCm)
+
+    /** The picture round an artwork [width] × [height] in a frame [moulding] wide, kept centred where it was. */
+    fun withArtSize(width: Double, height: Double, moulding: Double): Picture {
+        val outerW = width + 2 * moulding
+        val outerH = height + 2 * moulding
+        val b = bounds
+        return copy(
+            bounds = CmRect(b.left + (b.width - outerW) / 2, b.top + (b.height - outerH) / 2, outerW, outerH),
+            mouldingCm = moulding,
+        )
+    }
 }
 
 const val DEFAULT_MOULDING_CM = 3.0
@@ -58,9 +69,36 @@ const val DEFAULT_PICTURE_WIDTH_CM = 50.0
 /** A dark wood, near black: the frame most pictures are tried in first. */
 const val DEFAULT_FRAME_COLOR = 0xFF2B2622.toInt()
 
-/** Whether [width] × [height] with a [moulding] wide frame is a picture: some artwork left inside the frame. */
-fun isPictureSize(width: Double, height: Double, moulding: Double): Boolean =
-    width > 0 && height > 0 && moulding >= 0 && 2 * moulding < minOf(width, height)
+/** Whether an artwork [width] × [height] in a frame [moulding] wide is a picture: both there, the frame none or some. */
+fun isArtSize(width: Double, height: Double, moulding: Double): Boolean = width > 0 && height > 0 && moulding >= 0
+
+/**
+ * An artwork's standard size, short side by long, in centimetres, as frames
+ * and prints are sold; [name] is what it is known by, if anything.
+ */
+data class ArtSize(val short: Double, val long: Double, val name: String? = null)
+
+/** The sizes artworks and frames commonly come in, smallest first. */
+val STANDARD_ART_SIZES = listOf(
+    ArtSize(10.0, 15.0),
+    ArtSize(13.0, 18.0),
+    ArtSize(15.0, 21.0),
+    ArtSize(20.0, 30.0),
+    ArtSize(21.0, 29.7, "A4"),
+    ArtSize(30.0, 40.0),
+    ArtSize(30.0, 45.0),
+    ArtSize(40.0, 50.0),
+    ArtSize(40.0, 60.0),
+    ArtSize(50.0, 70.0),
+    ArtSize(60.0, 80.0),
+    ArtSize(60.0, 90.0),
+    ArtSize(70.0, 100.0),
+)
+
+/** The standard size [width] × [height] is, either way round; null for one that is none. */
+fun standardSizeOf(width: Double, height: Double): ArtSize? = STANDARD_ART_SIZES.firstOrNull {
+    it.short == minOf(width, height) && it.long == maxOf(width, height)
+}
 
 /**
  * A new picture [widthCm] wide round an artwork of [artAspect] (height over

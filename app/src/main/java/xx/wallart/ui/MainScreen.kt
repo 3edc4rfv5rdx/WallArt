@@ -239,7 +239,7 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
         }
         picture == null || dialog == Dialog.NONE -> Unit
         dialog == Dialog.SIZE -> PictureSizeDialog(picture, onDismiss = { dialog = Dialog.NONE }) { w, h, m ->
-            vm.setSize(w, h, m)
+            vm.setArtSize(w, h, m)
             dialog = Dialog.NONE
         }
         dialog == Dialog.FRAME_COLOR -> FrameColorDialog(

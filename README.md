@@ -20,9 +20,11 @@ Work in progress: what it is to do is in [docs/SPEC.md](docs/SPEC.md).
 - **Pictures**: an artwork in a frame, as many as wanted, drawn in the
   wall's perspective and true to size. Tap one to select it, drag it across
   the wall; near another one's edge, centre or a gap already between two,
-  it snaps to it, with a guide line and the gap in centimetres. The pencil sets its artwork, its outer size and frame width in
-  centimetres, a frame colour or a photo of a frame, and its place in the
-  stack. Shadow in the ⋮ menu lets them cast a soft shadow.
+  it snaps to it, with a guide line and the gap in centimetres. The pencil
+  sets its artwork; the artwork's size in centimetres and way round — typed,
+  stepped by − and +, or a standard size from a drop-down — and the frame's
+  width round it, the size outside shown large; a frame colour or a photo of a frame; and its place in the stack.
+  Shadow in the ⋮ menu lets them cast a soft shadow.
 - **Format**: the saved image's way round, shape (the photo's own, 1:1,
   4:5, 3:4, 2:3, 9:16, A4), size and preset (Instagram, Full HD, 10×15,
   A4 300 dpi and more), as in PhotoCollage. Any shape but the photo's own

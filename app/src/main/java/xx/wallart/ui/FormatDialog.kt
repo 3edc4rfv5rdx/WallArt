@@ -1,21 +1,15 @@
 package xx.wallart.ui
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -27,12 +21,6 @@ import xx.wallart.Aspect
 import xx.wallart.Format
 import xx.wallart.Preset
 import xx.wallart.R
-
-/** What a field shows when there is nothing to show: no preset the format makes. */
-private const val NO_VALUE = "—"
-
-/** Every drop-down field the same width, wide enough for the longest preset's name. */
-private val DROPDOWN_WIDTH = 176.dp
 
 /**
  * The format the image is saved in, for a photo [photoW] × [photoH]: its way
@@ -118,32 +106,3 @@ private val FormatSaver = Saver<Format, List<Any>>(
         Format(Aspect.valueOf(it[0] as String), it[1] as Boolean, it[2] as Int, it[3] as Double, it[4] as Double)
     },
 )
-
-/** A setting's [label], and its [value] in a field that opens the [options] to pick from; still while not [enabled]. */
-@Composable
-private fun <T> DropdownRow(
-    label: String,
-    value: String,
-    options: List<T>,
-    optionLabel: (T) -> String,
-    enabled: Boolean = true,
-    onPick: (T) -> Unit,
-) {
-    var open by remember { mutableStateOf(false) }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-        Box {
-            OutlinedButton(onClick = { open = true }, enabled = enabled, modifier = Modifier.width(DROPDOWN_WIDTH)) {
-                Text(value, maxLines = 1)
-            }
-            AppMenu(expanded = open, onDismissRequest = { open = false }) {
-                options.forEach { option ->
-                    AppMenuItem(optionLabel(option)) {
-                        open = false
-                        onPick(option)
-                    }
-                }
-            }
-        }
-    }
-}

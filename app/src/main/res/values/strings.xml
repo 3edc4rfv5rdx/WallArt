@@ -58,4 +58,9 @@
     <string name="shape">Shape</string>
     <string name="preset">Preset</string>
     <string name="original">Original</string>
+    <string name="standard_size">Standard</string>
+    <string name="art_width">Artwork width</string>
+    <string name="art_height">Artwork height</string>
+    <string name="less">Less</string>
+    <string name="more">More</string>
 </resources>

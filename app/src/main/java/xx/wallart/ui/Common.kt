@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -35,11 +36,16 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -296,5 +302,42 @@ fun AppScreen(title: String, onBack: () -> Unit, content: @Composable ColumnScop
             Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
         }
         content()
+    }
+}
+
+// ---------- Drop-downs ----------
+
+/** What a field shows when there is nothing to show: no preset the format makes, no standard size the picture is. */
+const val NO_VALUE = "—"
+
+/** Every drop-down field the same width, wide enough for the longest preset's name. */
+private val DROPDOWN_WIDTH = 176.dp
+
+/** A setting's [label], and its [value] in a field that opens the [options] to pick from; still while not [enabled]. */
+@Composable
+fun <T> DropdownRow(
+    label: String,
+    value: String,
+    options: List<T>,
+    optionLabel: (T) -> String,
+    enabled: Boolean = true,
+    onPick: (T) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+        Box {
+            OutlinedButton(onClick = { open = true }, enabled = enabled, modifier = Modifier.width(DROPDOWN_WIDTH)) {
+                Text(value, maxLines = 1)
+            }
+            AppMenu(expanded = open, onDismissRequest = { open = false }) {
+                options.forEach { option ->
+                    AppMenuItem(optionLabel(option)) {
+                        open = false
+                        onPick(option)
+                    }
+                }
+            }
+        }
     }
 }

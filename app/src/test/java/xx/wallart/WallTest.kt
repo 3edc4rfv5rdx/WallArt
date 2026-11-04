@@ -42,12 +42,25 @@ class WallTest {
     }
 
     @Test
-    fun `a frame must leave room for the artwork`() {
-        assertTrue(isPictureSize(50.0, 70.0, 3.0))
-        assertTrue(isPictureSize(50.0, 70.0, 0.0))
-        assertFalse(isPictureSize(50.0, 70.0, 25.0))
-        assertFalse(isPictureSize(0.0, 70.0, 3.0))
-        assertFalse(isPictureSize(50.0, 70.0, -1.0))
+    fun `an artwork needs both sides, its frame none or some`() {
+        assertTrue(isArtSize(30.0, 40.0, 3.0))
+        assertTrue(isArtSize(30.0, 40.0, 0.0))
+        assertFalse(isArtSize(0.0, 40.0, 3.0))
+        assertFalse(isArtSize(30.0, 40.0, -1.0))
+    }
+
+    @Test
+    fun `an artwork's size puts the frame round it, centred where the picture was`() {
+        val picture = Picture(1, CmRect(0.0, 0.0, 56.0, 76.0)).withArtSize(30.0, 40.0, 3.0)
+        assertEquals(CmRect(10.0, 15.0, 36.0, 46.0), picture.bounds)
+        assertEquals(CmRect(13.0, 18.0, 30.0, 40.0), picture.opening)
+    }
+
+    @Test
+    fun `a standard size is known either way round`() {
+        assertEquals(ArtSize(30.0, 40.0), standardSizeOf(40.0, 30.0))
+        assertEquals("A4", standardSizeOf(21.0, 29.7)?.name)
+        assertNull(standardSizeOf(33.0, 40.0))
     }
 
     @Test

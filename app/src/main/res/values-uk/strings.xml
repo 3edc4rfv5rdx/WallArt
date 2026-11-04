@@ -58,4 +58,9 @@
     <string name="shape">Форма</string>
     <string name="preset">Пресет</string>
     <string name="original">Вихідна</string>
+    <string name="standard_size">Стандарт</string>
+    <string name="art_width">Ширина малюнка</string>
+    <string name="art_height">Висота малюнка</string>
+    <string name="less">Менше</string>
+    <string name="more">Більше</string>
 </resources>
