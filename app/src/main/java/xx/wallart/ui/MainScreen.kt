@@ -107,6 +107,7 @@ private enum class PictureTool(@param:StringRes val text: Int) {
     FRAME_PHOTO(R.string.frame_photo),
     FORWARD(R.string.bring_forward),
     BACKWARD(R.string.send_backward),
+    DUPLICATE(R.string.duplicate),
     REMOVE(R.string.remove_picture),
 }
 
@@ -159,6 +160,7 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
                     PictureTool.FRAME_PHOTO -> choosePhoto(Pick.FRAME)
                     PictureTool.FORWARD -> vm.restackSelected(1)
                     PictureTool.BACKWARD -> vm.restackSelected(-1)
+                    PictureTool.DUPLICATE -> vm.duplicateSelected()
                     PictureTool.REMOVE -> vm.removeSelected()
                 }
             },

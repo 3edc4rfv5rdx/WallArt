@@ -3,6 +3,7 @@
 > N=new feature, E=error fix, F=fine-tune, R=refactor, I=infrastructure
 
 ## Unreleased
+- N: Duplicate in the pencil menu puts a copy of the picture beside it, at the gap it has to its neighbour or 10 cm
 - F: Size in the pencil menu sets the artwork's size and way round and the frame round it, each side typed in large figures or stepped by − and +, with the standard sizes in a drop-down and the size outside the frame large in the title
 - N: Save image in the ⋮ menu saves the wall with its pictures into Pictures/WallArt, and Share sends it
 - N: Format in the ⋮ menu sets the saved image's way round, shape, size and preset as in PhotoCollage, its crop shown on the wall and dragged off the pictures, its size starting nearest what the crop really is

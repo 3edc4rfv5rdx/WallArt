@@ -63,4 +63,5 @@
     <string name="art_height">Высота рисунка</string>
     <string name="less">Меньше</string>
     <string name="more">Больше</string>
+    <string name="duplicate">Дублировать</string>
 </resources>

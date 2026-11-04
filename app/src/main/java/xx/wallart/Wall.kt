@@ -64,6 +64,9 @@ data class Picture(
 }
 
 const val DEFAULT_MOULDING_CM = 3.0
+
+/** The gap a copy of a picture is put at beside it, when it has none to a neighbour to go by. */
+const val DEFAULT_GAP_CM = 10.0
 const val DEFAULT_PICTURE_WIDTH_CM = 50.0
 
 /** A dark wood, near black: the frame most pictures are tried in first. */
@@ -140,6 +143,24 @@ data class Wall(
     /** Every photo the wall is made of, by the name [Photos] keeps it by. */
     val photoNames: Set<String>
         get() = (listOf(photo) + pictures.flatMap { listOf(it.artPhoto, it.framePhoto) }).filterNotNull().toSet()
+
+    /**
+     * A copy of [id]'s picture put to its right — at the gap it already has to
+     * a picture beside it in its row, the nearest such, or [DEFAULT_GAP_CM] —
+     * and the copy's id; null when there is no such picture.
+     */
+    fun duplicated(id: Long): Pair<Wall, Long>? {
+        val original = pictures.firstOrNull { it.id == id } ?: return null
+        val b = original.bounds
+        val gap = pictures.asSequence()
+            .filter { it.id != id && it.bounds.top < b.bottom && b.top < it.bounds.bottom }
+            .flatMap { sequenceOf(b.left - it.bounds.right, it.bounds.left - b.right) }
+            .filter { it > 0 }
+            .minOrNull() ?: DEFAULT_GAP_CM
+        val copyId = nextId()
+        val copy = original.copy(id = copyId, bounds = b.copy(left = b.right + gap))
+        return copy(pictures = pictures + copy) to copyId
+    }
 
     /** An id no picture has yet. */
     fun nextId(): Long = (pictures.maxOfOrNull { it.id } ?: 0) + 1

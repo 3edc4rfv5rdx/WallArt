@@ -23,7 +23,8 @@ Work in progress: what it is to do is in [docs/SPEC.md](docs/SPEC.md).
   it snaps to it, with a guide line and the gap in centimetres. The pencil
   sets its artwork; the artwork's size in centimetres and way round — typed,
   stepped by − and +, or a standard size from a drop-down — and the frame's
-  width round it, the size outside shown large; a frame colour or a photo of a frame; and its place in the stack.
+  width round it, the size outside shown large; a frame colour or a photo of a frame; its place in the stack; or
+  Duplicate, for a copy beside it to try a gallery with.
   Shadow in the ⋮ menu lets them cast a soft shadow.
 - **Format**: the saved image's way round, shape (the photo's own, 1:1,
   4:5, 3:4, 2:3, 9:16, A4), size and preset (Instagram, Full HD, 10×15,

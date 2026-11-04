@@ -322,6 +322,15 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
         commit { it.copy(wall = it.wall.restacked(id, by)) }
     }
 
+    /** A copy of the selected picture beside it, selected in its place, to be dragged where it goes. */
+    fun duplicateSelected() {
+        commit { state ->
+            val id = state.selected ?: return@commit state
+            val (wall, copy) = state.wall.duplicated(id) ?: return@commit state
+            state.copy(wall = wall, selected = copy)
+        }
+    }
+
     fun removeSelected() {
         commit { state ->
             val id = state.selected ?: return@commit state

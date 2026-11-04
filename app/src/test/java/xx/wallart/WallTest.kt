@@ -82,4 +82,17 @@ class WallTest {
         assertEquals(4L, wall.nextId())
         assertEquals(1L, Wall().nextId())
     }
+
+    @Test
+    fun `a copy goes to the right at the gap the picture has, or at ten centimetres`() {
+        fun pic(id: Long, left: Double) = Picture(id, CmRect(left, 0.0, 30.0, 40.0))
+        val alone = Wall(pictures = listOf(pic(1, 0.0)))
+        val (one, copyId) = alone.duplicated(1)!!
+        assertEquals(2L, copyId)
+        assertEquals(CmRect(40.0, 0.0, 30.0, 40.0), one.pictures.last().bounds)
+        // 6 cm to its left neighbour: the copy keeps that gap on its right.
+        val row = Wall(pictures = listOf(pic(1, 0.0), pic(2, 36.0)))
+        assertEquals(72.0, row.duplicated(2)!!.first.pictures.last().bounds.left, 1e-9)
+        assertNull(alone.duplicated(9))
+    }
 }
