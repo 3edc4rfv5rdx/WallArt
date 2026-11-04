@@ -74,11 +74,12 @@ fun newPicture(id: Long, centre: Pt, artAspect: Double, artPhoto: String?, width
 }
 
 /**
- * The wall: its [calibration] once one is made, the [pictures] on it from the
- * back to the front, and whether they cast a [shadow]. Its photo is a file of
- * the app's ([Photos]).
+ * The wall: its [photo] as [Photos] keeps it, its [calibration] once one is
+ * made, the [pictures] on it from the back to the front, and whether they
+ * cast a [shadow].
  */
 data class Wall(
+    val photo: String? = null,
     val calibration: Calibration? = null,
     val pictures: List<Picture> = emptyList(),
     val shadow: Boolean = true,
@@ -96,6 +97,10 @@ data class Wall(
         list.add(to, list.removeAt(from))
         return copy(pictures = list)
     }
+
+    /** Every photo the wall is made of, by the name [Photos] keeps it by. */
+    val photoNames: Set<String>
+        get() = (listOf(photo) + pictures.flatMap { listOf(it.artPhoto, it.framePhoto) }).filterNotNull().toSet()
 
     /** An id no picture has yet. */
     fun nextId(): Long = (pictures.maxOfOrNull { it.id } ?: 0) + 1

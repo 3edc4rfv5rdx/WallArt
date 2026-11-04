@@ -8,10 +8,15 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -44,21 +49,26 @@ data class CalibrationEdit(val corners: List<Pt>, val widthText: String, val hei
 enum class PhotoSlot { ART, FRAME }
 
 /**
- * Everything the editor shows. [image] is the wall's photo as shown,
- * [photos] each picture's photos as shown by the name the picture keeps them
- * by; [calibrating] the calibration under way, if one is; [selected] the
- * picture the tools work on.
+ * Everything the editor shows. [photos] are the wall's photos as shown, by
+ * the name the wall keeps them by; [calibrating] the calibration under way,
+ * if one is; [selected] the picture the tools work on. Busy from the start:
+ * the work kept is read back first.
  */
 data class EditorState(
     val wall: Wall = Wall(),
-    val image: ImageBitmap? = null,
     val photos: Map<String, ImageBitmap> = emptyMap(),
     val calibrating: CalibrationEdit? = null,
     val selected: Long? = null,
-    val busy: Boolean = false,
+    val busy: Boolean = true,
 ) {
+    /** The wall's photo as shown; null while there is none, or it cannot be read. */
+    val image: ImageBitmap? get() = wall.photo?.let { photos[it] }
+
     val selectedPicture: Picture? get() = wall.pictures.firstOrNull { it.id == selected }
 }
+
+/** How long the wall has to stay as it is before it is written: a drag is one write, not one a frame. */
+private const val AUTOSAVE_DELAY_MS = 400L
 
 class WallViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -69,16 +79,65 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
     private val _notices = Channel<Int>(Channel.BUFFERED)
     val notices = _notices.receiveAsFlow()
 
+    private val session = WallFile.session(application)
+
+    /** Whether the work kept has been read back: till then there is nothing of the user's to write. */
+    @Volatile
+    private var restored = false
+
+    init {
+        viewModelScope.launch {
+            restore()
+            autosave()
+        }
+    }
+
+    /**
+     * The work as it was left, with its photos; the photos no longer part of
+     * it deleted — nothing else can name them at a start, as the steps to
+     * undo are not kept. Not when the work kept cannot be read: what it
+     * names is not known, and its photos are all there is left of it.
+     */
+    private suspend fun restore() {
+        val context = getApplication<Application>()
+        val (wall, photos) = withContext(Dispatchers.IO) {
+            val kept = session.read()
+            if (kept != null || !session.exists()) Photos.sweep(context, kept?.photoNames.orEmpty())
+            val wall = kept ?: Wall()
+            wall to loadPhotos(context, wall)
+        }
+        restored = true
+        _state.update { it.copy(wall = wall, photos = photos, busy = false) }
+    }
+
+    /** The wall written each time it changes and then stays as it is for a moment. */
+    private suspend fun autosave() {
+        _state.map { it.wall }.distinctUntilChanged().drop(1).collectLatest { wall ->
+            delay(AUTOSAVE_DELAY_MS)
+            withContext(Dispatchers.IO) { writeSession(wall) }
+        }
+    }
+
+    /** The wall written now, as the app goes out of sight: the autosave may not get its moment. */
+    fun saveNow() {
+        if (restored) writeSession(_state.value.wall)
+    }
+
+    private fun writeSession(wall: Wall) {
+        // A write that fails leaves the last one standing; the next change tries again.
+        runCatching { session.write(wall) }
+    }
+
     /**
      * [uri] as the wall's photo. A new photo is a new view of the wall, so the
      * old calibration says nothing about it: the calibration starts over, from
      * the size the last one had. The pictures stay where they are on the wall.
      */
-    fun importPhoto(uri: Uri) = importing({ Photos.importWall(getApplication(), uri) }) { state, bitmap ->
+    fun importPhoto(uri: Uri) = importing({ Photos.import(getApplication(), uri, wall = true) }) { state, (name, bitmap) ->
         val old = state.wall.calibration
         state.copy(
-            wall = state.wall.copy(calibration = null),
-            image = bitmap.asImageBitmap(),
+            wall = state.wall.copy(photo = name, calibration = null),
+            photos = state.photos + (name to bitmap.asImageBitmap()),
             calibrating = CalibrationEdit.from(old).copy(corners = INITIAL_CORNERS),
             selected = null,
         )
@@ -88,7 +147,7 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
      * A new picture round the artwork at [uri], in the middle of the photo,
      * its height following the artwork's shape; selected, to be worked on.
      */
-    fun addPicture(uri: Uri) = importing({ Photos.importPicturePhoto(getApplication(), uri) }) { state, (name, bitmap) ->
+    fun addPicture(uri: Uri) = importing({ Photos.import(getApplication(), uri, wall = false) }) { state, (name, bitmap) ->
         val calibration = state.wall.calibration ?: return@importing state
         val id = state.wall.nextId()
         val picture = newPicture(id, photoCentreOnWall(calibration), bitmap.height.toDouble() / bitmap.width, name)
@@ -102,7 +161,7 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
     /** [uri] as the [slot] photo of the selected picture; its size stays, the artwork cropped to it. */
     fun setPicturePhoto(slot: PhotoSlot, uri: Uri) {
         val id = _state.value.selected ?: return
-        importing({ Photos.importPicturePhoto(getApplication(), uri) }) { state, (name, bitmap) ->
+        importing({ Photos.import(getApplication(), uri, wall = false) }) { state, (name, bitmap) ->
             state.copy(
                 wall = state.wall.updated(id) {
                     when (slot) {
@@ -233,6 +292,12 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
         _notices.trySend(text)
     }
 }
+
+/** Every photo of [wall] as shown, by name; one that cannot be read is left out, and drawn as missing. */
+private fun loadPhotos(context: Application, wall: Wall): Map<String, ImageBitmap> =
+    wall.photoNames.mapNotNull { name ->
+        Photos.loadShown(context, name, wall = name == wall.photo)?.let { name to it.asImageBitmap() }
+    }.toMap()
 
 /**
  * Where the middle of the photo is on the wall, in centimetres; the middle of

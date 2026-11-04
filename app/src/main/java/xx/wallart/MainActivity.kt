@@ -62,6 +62,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Out of sight the process may be ended at any moment: the work is written now. */
+    override fun onStop() {
+        super.onStop()
+        viewModel.saveNow()
+    }
+
     /**
      * The window background before the first frame and the colour the system
      * bar icons are drawn for, both following the app's theme rather than the
