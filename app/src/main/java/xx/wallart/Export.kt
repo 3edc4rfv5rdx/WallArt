@@ -21,8 +21,8 @@ import kotlin.math.ceil
 import kotlin.math.hypot
 import kotlin.math.max
 
-/** The long side an image is shared at, at most: plenty for a message, and quick to send. */
-const val SHARE_LONG_SIDE = 2048
+/** The long side an image is shared at: Full HD's, plenty for a message or a screen and quick to send. */
+const val SHARE_LONG_SIDE = 1920
 
 /** The folder under Pictures the images are saved into. */
 const val SAVE_FOLDER = "WallArt"
