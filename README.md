@@ -23,6 +23,13 @@ Work in progress: what it is to do is in [docs/SPEC.md](docs/SPEC.md).
   it snaps to it, with a guide line and the gap in centimetres. The pencil sets its artwork, its outer size and frame width in
   centimetres, a frame colour or a photo of a frame, and its place in the
   stack. Shadow in the ⋮ menu lets them cast a soft shadow.
+- **Format**: the saved image's way round, shape (the photo's own, 1:1,
+  4:5, 3:4, 2:3, 9:16, A4), size and preset (Instagram, Full HD, 10×15,
+  A4 300 dpi and more), as in PhotoCollage. Any shape but the photo's own
+  shows its crop on the wall, the rest dimmed; a drag off the pictures moves
+  it. The size starts at the one nearest what the crop really is.
+- **Saving**: Save image in the ⋮ menu draws the crop with its pictures at
+  the format's size into Pictures/WallArt; Share sends it to another app.
 - **Undo and redo** step through every change of the wall; a drag is one
   step.
 - **Kept**: the work is written after every change and is there as it was

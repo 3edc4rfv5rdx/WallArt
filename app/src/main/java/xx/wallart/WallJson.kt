@@ -24,6 +24,15 @@ object WallJson {
             )
         }
         put("shadow", wall.shadow)
+        put(
+            "format",
+            JSONObject()
+                .put("aspect", wall.format.aspect.name)
+                .put("landscape", wall.format.landscape)
+                .put("longSide", wall.format.longSide)
+                .put("cropX", wall.format.cropX)
+                .put("cropY", wall.format.cropY),
+        )
         put("pictures", JSONArray().apply { wall.pictures.forEach { put(picture(it)) } })
     }.toString()
 
@@ -45,9 +54,24 @@ object WallJson {
                 )
             },
             shadow = json.optBoolean("shadow", true),
+            // Walls kept before there was a format have the default one.
+            format = json.optJSONObject("format")?.let { format(it) } ?: Format(),
             pictures = json.getJSONArray("pictures").let { list -> (0 until list.length()).map { picture(list.getJSONObject(it)) } },
         )
     }.getOrNull()
+
+    /** A format; a shape this version does not know, or a size its shape does not offer, is its default. */
+    private fun format(json: JSONObject): Format {
+        val aspect = Aspect.entries.firstOrNull { it.name == json.optString("aspect") } ?: Aspect.ORIGINAL
+        val longSide = json.optInt("longSide").takeIf { it in aspect.sizes } ?: aspect.defaultLong
+        return Format(
+            aspect = aspect,
+            landscape = json.optBoolean("landscape"),
+            longSide = longSide,
+            cropX = json.optDouble("cropX", 0.5).coerceIn(0.0, 1.0),
+            cropY = json.optDouble("cropY", 0.5).coerceIn(0.0, 1.0),
+        )
+    }
 
     private fun picture(p: Picture): JSONObject = JSONObject()
         .put("id", p.id)

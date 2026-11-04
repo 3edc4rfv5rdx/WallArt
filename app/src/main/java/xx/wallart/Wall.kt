@@ -75,14 +75,15 @@ fun newPicture(id: Long, centre: Pt, artAspect: Double, artPhoto: String?, width
 
 /**
  * The wall: its [photo] as [Photos] keeps it, its [calibration] once one is
- * made, the [pictures] on it from the back to the front, and whether they
- * cast a [shadow].
+ * made, the [pictures] on it from the back to the front, whether they cast a
+ * [shadow], and the [format] the image is saved in.
  */
 data class Wall(
     val photo: String? = null,
     val calibration: Calibration? = null,
     val pictures: List<Picture> = emptyList(),
     val shadow: Boolean = true,
+    val format: Format = Format(),
 ) {
     /** [id]'s picture changed by [change]; the rest as they were. */
     fun updated(id: Long, change: (Picture) -> Picture): Wall =

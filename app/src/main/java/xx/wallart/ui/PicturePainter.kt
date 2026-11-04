@@ -18,6 +18,7 @@ import xx.wallart.CmRect
 import xx.wallart.EditorState
 import xx.wallart.Homography
 import xx.wallart.Picture
+import xx.wallart.Wall
 
 /** How far the light from above and a little left throws a picture's shadow, in centimetres. */
 private const val SHADOW_DX_CM = 0.8
@@ -50,30 +51,50 @@ internal class PicturePainter {
     private val matrix = Matrix()
     private val path = Path()
 
+    /** The editor's pictures over its photo, [selected] ringed in [accent]. */
     fun draw(scope: DrawScope, state: EditorState, box: ImageBox, homography: Homography, selected: Long?, accent: Color) {
         val edge = with(scope) { 1.dp.toPx() }
         scope.drawIntoCanvas { composeCanvas ->
-            val canvas = composeCanvas.nativeCanvas
-            // Clipped to the photo: a picture hung past its edge is cut off there, as in the image saved.
-            canvas.save()
-            canvas.clipRect(box.left, box.top, box.left + box.width, box.top + box.height)
-            for (picture in state.wall.pictures) {
-                fun project(rect: CmRect): List<Offset>? = rect.corners.map { homography.map(it)?.let(box::toScreen) ?: return null }
-                // A picture any corner of which is past the horizon cannot be drawn whole: it is not drawn.
-                val outer = project(picture.bounds) ?: continue
-                val opening = project(picture.opening) ?: continue
-                if (state.wall.shadow) drawShadow(canvas, picture.bounds, ::project)
-                drawFrame(canvas, picture, outer, state.photos[picture.framePhoto]?.asAndroidBitmap())
-                drawArt(canvas, picture, opening, state.photos[picture.artPhoto]?.asAndroidBitmap())
-                outline(canvas, outer, Color.Black.copy(alpha = EDGE_ALPHA), edge)
-                outline(canvas, opening, Color.Black.copy(alpha = EDGE_ALPHA), edge)
-                if (picture.id == selected) {
-                    outline(canvas, outer, Color.White, edge * 4)
-                    outline(canvas, outer, accent, edge * 2)
+            paint(composeCanvas.nativeCanvas, state.wall, { state.photos[it]?.asAndroidBitmap() }, box, homography, edge) { id, outer ->
+                if (id == selected) {
+                    outline(composeCanvas.nativeCanvas, outer, Color.White, edge * 4)
+                    outline(composeCanvas.nativeCanvas, outer, accent, edge * 2)
                 }
             }
-            canvas.restore()
         }
+    }
+
+    /**
+     * [wall]'s pictures onto [canvas], its photo lying in [box]; [photo] gives
+     * each picture's photos by name, null for one not to hand. [edge] is the
+     * width of the frame's thin edges; [after] is told each picture drawn, with
+     * its outline, to draw over it.
+     */
+    fun paint(
+        canvas: Canvas,
+        wall: Wall,
+        photo: (String) -> Bitmap?,
+        box: ImageBox,
+        homography: Homography,
+        edge: Float,
+        after: (Long, List<Offset>) -> Unit = { _, _ -> },
+    ) {
+        // Clipped to the photo: a picture hung past its edge is cut off there, as in the image saved.
+        canvas.save()
+        canvas.clipRect(box.left, box.top, box.left + box.width, box.top + box.height)
+        for (picture in wall.pictures) {
+            fun project(rect: CmRect): List<Offset>? = rect.corners.map { homography.map(it)?.let(box::toScreen) ?: return null }
+            // A picture any corner of which is past the horizon cannot be drawn whole: it is not drawn.
+            val outer = project(picture.bounds) ?: continue
+            val opening = project(picture.opening) ?: continue
+            if (wall.shadow) drawShadow(canvas, picture.bounds, ::project)
+            drawFrame(canvas, picture, outer, picture.framePhoto?.let(photo))
+            drawArt(canvas, picture, opening, picture.artPhoto?.let(photo))
+            outline(canvas, outer, Color.Black.copy(alpha = EDGE_ALPHA), edge)
+            outline(canvas, opening, Color.Black.copy(alpha = EDGE_ALPHA), edge)
+            after(picture.id, outer)
+        }
+        canvas.restore()
     }
 
     /**

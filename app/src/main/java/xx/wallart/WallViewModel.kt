@@ -2,6 +2,7 @@ package xx.wallart
 
 import android.app.Application
 import android.net.Uri
+import android.os.Environment
 import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -45,6 +46,9 @@ data class CalibrationEdit(val corners: List<Pt>, val widthText: String, val hei
     }
 }
 
+/** A line for the user: [text], and after it [tail] — a name or a path, said as it is — when there is one. */
+data class Notice(@param:StringRes val text: Int, val tail: String = "")
+
 /** Which of a picture's photos a pick is for. */
 enum class PhotoSlot { ART, FRAME }
 
@@ -82,8 +86,12 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
     val state: StateFlow<EditorState> = _state.asStateFlow()
 
     /** One-off lines for the user, each said once. */
-    private val _notices = Channel<Int>(Channel.BUFFERED)
+    private val _notices = Channel<Notice>(Channel.BUFFERED)
     val notices = _notices.receiveAsFlow()
+
+    /** Images rendered for Share, each to be handed to the system's share sheet once. */
+    private val _shares = Channel<Uri>(Channel.BUFFERED)
+    val shares = _shares.receiveAsFlow()
 
     private val session = WallFile.session(application)
     private val draftFile = WallFile.draft(application)
@@ -124,6 +132,55 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
         }
         restored = true
         _state.update { it.copy(wall = kept, photos = photos, draft = draft, busy = false) }
+    }
+
+    /** The wall photo's size in pixels as it is kept; null without one. A header read: quick enough for a tap. */
+    fun photoSize(): Pair<Int, Int>? = _state.value.wall.photo?.let { Photos.keptSize(getApplication(), it) }
+
+    fun setFormat(format: Format) {
+        commit { it.copy(wall = it.wall.copy(format = format)) }
+    }
+
+    /**
+     * The crop moved by [dx], [dy] in the photo's 0..1 coordinates, for a photo
+     * of [photoRatio]; a step only with the drag it is part of, like a picture's.
+     */
+    fun moveCrop(dx: Double, dy: Double, photoRatio: Double) {
+        _state.update { it.copy(wall = it.wall.copy(format = it.wall.format.cropMoved(photoRatio, dx, dy))) }
+    }
+
+    /** The wall drawn as its format says and saved into Pictures/[SAVE_FOLDER]. */
+    fun saveImage() = exporting { context, wall ->
+        val bitmap = Export.render(context, wall)
+        try {
+            Export.saveToPictures(context, bitmap)
+        } finally {
+            bitmap.recycle()
+        }
+        say(R.string.saved_to, "${Environment.DIRECTORY_PICTURES}/$SAVE_FOLDER")
+    }
+
+    /** The wall drawn for sharing, and handed to the share sheet. */
+    fun shareImage() = exporting { context, wall ->
+        val bitmap = Export.render(context, wall, SHARE_LONG_SIDE)
+        val uri = try {
+            Export.shareFile(context, bitmap)
+        } finally {
+            bitmap.recycle()
+        }
+        _shares.trySend(uri)
+    }
+
+    /** [work] on the wall as it is, off the main thread, busy meanwhile; a failure — memory too — said as one. */
+    private fun exporting(work: (Application, Wall) -> Unit) {
+        val state = _state.value
+        if (state.busy || state.wall.photo == null) return
+        _state.update { it.copy(busy = true) }
+        viewModelScope.launch {
+            val done = withContext(Dispatchers.IO) { runCatching { work(getApplication(), state.wall) }.isSuccess }
+            _state.update { it.copy(busy = false) }
+            if (!done) say(R.string.image_not_saved)
+        }
     }
 
     /** The wall as it is kept as the draft, over the one there was. */
@@ -182,8 +239,11 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun importPhoto(uri: Uri) = importing({ Photos.import(getApplication(), uri, wall = true) }) { state, (name, bitmap) ->
         val old = state.wall.calibration
+        // The size the format saves at follows the new photo's as it is kept, not as it is shown: the nearest its shape offers.
+        val (w, h) = Photos.keptSize(getApplication(), name) ?: (bitmap.width to bitmap.height)
+        val format = state.wall.format.fitted(w, h)
         state.copy(
-            wall = state.wall.copy(photo = name, calibration = null),
+            wall = state.wall.copy(photo = name, calibration = null, format = format),
             photos = state.photos + (name to bitmap.asImageBitmap()),
             calibrating = CalibrationEdit.from(old).copy(corners = INITIAL_CORNERS),
             selected = null,
@@ -403,8 +463,8 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun say(@StringRes text: Int) {
-        _notices.trySend(text)
+    private fun say(@StringRes text: Int, tail: String = "") {
+        _notices.trySend(Notice(text, tail))
     }
 }
 

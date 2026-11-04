@@ -47,4 +47,15 @@
     <string name="work_lost_warning">The current work will be gone</string>
     <string name="open">Open</string>
     <string name="start">Start</string>
+    <string name="save_image">Save image</string>
+    <string name="share">Share</string>
+    <string name="saved_to">Saved to</string>
+    <string name="image_not_saved">The image could not be made</string>
+    <string name="format">Format</string>
+    <string name="orientation">Orientation</string>
+    <string name="portrait">Portrait</string>
+    <string name="landscape">Landscape</string>
+    <string name="shape">Shape</string>
+    <string name="preset">Preset</string>
+    <string name="original">Original</string>
 </resources>

@@ -47,4 +47,15 @@
     <string name="work_lost_warning">Текущая работа пропадёт</string>
     <string name="open">Открыть</string>
     <string name="start">Начать</string>
+    <string name="save_image">Сохранить изображение</string>
+    <string name="share">Поделиться</string>
+    <string name="saved_to">Сохранено в</string>
+    <string name="image_not_saved">Не удалось сделать изображение</string>
+    <string name="format">Формат</string>
+    <string name="orientation">Ориентация</string>
+    <string name="portrait">Портрет</string>
+    <string name="landscape">Пейзаж</string>
+    <string name="shape">Форма</string>
+    <string name="preset">Пресет</string>
+    <string name="original">Исходная</string>
 </resources>

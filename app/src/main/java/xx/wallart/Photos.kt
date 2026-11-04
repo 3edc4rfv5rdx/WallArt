@@ -2,6 +2,7 @@ package xx.wallart
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.net.Uri
 import androidx.core.graphics.scale
@@ -58,6 +59,19 @@ object Photos {
         val source = file(context, name).takeIf { it.exists() } ?: return null
         // Throwable, not Exception: a photo too large for memory is just as unreadable.
         return runCatching { decode(ImageDecoder.createSource(source), if (wall) WALL_SHOWN else PICTURE_SHOWN) }.getOrNull()
+    }
+
+    /** The size of the photo kept as [name], in pixels, upright as it is kept; null when it is gone or unreadable. */
+    fun keptSize(context: Context, name: String): Pair<Int, Int>? {
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file(context, name).path, options)
+        return if (options.outWidth > 0 && options.outHeight > 0) options.outWidth to options.outHeight else null
+    }
+
+    /** The photo kept as [name], no longer than [longSide] — never longer than it is kept; null when it is gone or unreadable. */
+    fun loadKept(context: Context, name: String, longSide: Int): Bitmap? {
+        val source = file(context, name).takeIf { it.exists() } ?: return null
+        return runCatching { decode(ImageDecoder.createSource(source), longSide) }.getOrNull()
     }
 
     /** Every photo kept but not among [keep] deleted, and the files of before photos were named with them. */

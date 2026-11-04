@@ -47,4 +47,15 @@
     <string name="work_lost_warning">Поточна робота зникне</string>
     <string name="open">Відкрити</string>
     <string name="start">Почати</string>
+    <string name="save_image">Зберегти зображення</string>
+    <string name="share">Поділитися</string>
+    <string name="saved_to">Збережено в</string>
+    <string name="image_not_saved">Не вдалося створити зображення</string>
+    <string name="format">Формат</string>
+    <string name="orientation">Орієнтація</string>
+    <string name="portrait">Портрет</string>
+    <string name="landscape">Пейзаж</string>
+    <string name="shape">Форма</string>
+    <string name="preset">Пресет</string>
+    <string name="original">Вихідна</string>
 </resources>

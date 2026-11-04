@@ -1,5 +1,6 @@
 package xx.wallart.ui
 
+import android.content.Intent
 import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.activity.compose.BackHandler
@@ -63,7 +64,23 @@ fun MainScreen(vm: WallViewModel, onExit: () -> Unit, onAbout: () -> Unit) {
     var screen by rememberSaveable { mutableStateOf(Screen.EDITOR) }
     // Said whichever screen is open.
     LaunchedEffect(vm) {
-        vm.notices.collect { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
+        vm.notices.collect { notice ->
+            val text = context.getString(notice.text)
+            val line = if (notice.tail.isEmpty()) text else "$text ${notice.tail}"
+            Toast.makeText(context, line, Toast.LENGTH_LONG).show()
+        }
+    }
+    LaunchedEffect(vm) {
+        vm.shares.collect { uri ->
+            val send = Intent(Intent.ACTION_SEND).apply {
+                type = "image/jpeg"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            // A phone with nothing to share to says so rather than closing the app.
+            runCatching { context.startActivity(Intent.createChooser(send, null)) }
+                .onFailure { Toast.makeText(context, R.string.image_not_saved, Toast.LENGTH_LONG).show() }
+        }
     }
     when (screen) {
         Screen.EDITOR -> EditorScreen(vm, onExit = onExit, onSettings = { screen = Screen.SETTINGS }, onAbout = onAbout)
@@ -80,7 +97,7 @@ private val BOTTOM_PANEL_HEIGHT = 64.dp
 private enum class Pick { WALL, NEW_PICTURE, ART, FRAME }
 
 /** The dialog open over the editor, if any. */
-private enum class Dialog { NONE, SIZE, FRAME_COLOR, NEW_WALL, OPEN_DRAFT }
+private enum class Dialog { NONE, SIZE, FRAME_COLOR, NEW_WALL, OPEN_DRAFT, FORMAT }
 
 /** The selected picture's tools, in the pencil's menu. */
 private enum class PictureTool(@param:StringRes val text: Int) {
@@ -125,6 +142,9 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
             // Asked first only when there is work to lose.
             onNewWall = { if (state.hasWork) dialog = Dialog.NEW_WALL else vm.newWall() },
             onSaveDraft = vm::saveDraft,
+            onSaveImage = vm::saveImage,
+            onFormat = { dialog = Dialog.FORMAT },
+            onShare = vm::shareImage,
             onOpenDraft = { if (state.hasWork) dialog = Dialog.OPEN_DRAFT else vm.openDraft() },
             onUndo = vm::undo,
             onRedo = vm::redo,
@@ -157,6 +177,7 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
                     onMovePicture = vm::movePicture,
                     onDragStart = vm::beginDrag,
                     onDragEnd = vm::endDrag,
+                    onMoveCrop = vm::moveCrop,
                     modifier = Modifier.fillMaxSize(),
                 )
                 // A photo the wall has but does not show yet — after a step back — is on its way, not to be chosen.
@@ -187,6 +208,17 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
 
     val picture = state.selectedPicture
     when {
+        dialog == Dialog.FORMAT -> {
+            val size = remember { vm.photoSize() }
+            // A photo gone from under it: nothing to set the format against.
+            LaunchedEffect(size) { if (size == null) dialog = Dialog.NONE }
+            if (size != null) {
+                FormatDialog(state.wall.format, size.first, size.second, onDismiss = { dialog = Dialog.NONE }) {
+                    dialog = Dialog.NONE
+                    vm.setFormat(it)
+                }
+            }
+        }
         dialog == Dialog.NEW_WALL -> ConfirmDialog(
             title = "${stringResource(R.string.new_wall_question)}?",
             text = stringResource(R.string.work_lost_warning),
@@ -227,6 +259,9 @@ private fun TopBar(
     onExit: () -> Unit,
     onNewWall: () -> Unit,
     onSaveDraft: () -> Unit,
+    onSaveImage: () -> Unit,
+    onFormat: () -> Unit,
+    onShare: () -> Unit,
     onOpenDraft: () -> Unit,
     onUndo: () -> Unit,
     onRedo: () -> Unit,
@@ -273,6 +308,19 @@ private fun TopBar(
             MoreButton(onClick = { menu = true })
             AppMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 val draft = state.draft
+                val exportable = !state.busy && state.calibrating == null && state.image != null
+                AppMenuItem(stringResource(R.string.save_image), enabled = exportable) {
+                    menu = false
+                    onSaveImage()
+                }
+                AppMenuItem(stringResource(R.string.share), enabled = exportable) {
+                    menu = false
+                    onShare()
+                }
+                AppMenuItem(stringResource(R.string.format), enabled = exportable) {
+                    menu = false
+                    onFormat()
+                }
                 AppMenuItem(stringResource(R.string.new_wall), enabled = !state.busy && state.hasWork) {
                     menu = false
                     onNewWall()

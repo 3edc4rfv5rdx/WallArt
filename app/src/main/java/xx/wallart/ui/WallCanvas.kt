@@ -28,8 +28,10 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
+import xx.wallart.Aspect
 import xx.wallart.CalibrationEdit
 import xx.wallart.CmRect
+import xx.wallart.Crop
 import xx.wallart.EditorState
 import xx.wallart.Guide
 import xx.wallart.Homography
@@ -43,6 +45,9 @@ import xx.wallart.snapPicture
 import kotlin.math.floor
 import kotlin.math.min
 import kotlin.math.roundToInt
+
+/** How dark what the crop leaves out is drawn. */
+private const val CROP_DIM = 0.55f
 
 /** How near on screen a dragged picture's edge, centre or gap has to come to another's to snap to it. */
 private val SNAP_REACH = 10.dp
@@ -79,6 +84,7 @@ fun WallCanvas(
     onMovePicture: (Long, Double, Double) -> Unit,
     onDragStart: () -> Unit,
     onDragEnd: () -> Unit,
+    onMoveCrop: (Double, Double, Double) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val cm = stringResource(R.string.cm)
@@ -95,6 +101,7 @@ fun WallCanvas(
     val movePicture by rememberUpdatedState(onMovePicture)
     val dragStart by rememberUpdatedState(onDragStart)
     val dragEnd by rememberUpdatedState(onDragEnd)
+    val moveCrop by rememberUpdatedState(onMoveCrop)
     val painter = remember { PicturePainter() }
 
     val gestures = if (calibrating != null) {
@@ -114,6 +121,7 @@ fun WallCanvas(
                     onGuides = { guides = it },
                     onBegin = { dragStart() },
                     onEnd = { dragEnd() },
+                    onMoveCrop = { dx, dy -> moveCrop(dx, dy, image.width.toDouble() / image.height) },
                 ) { id, left, top -> movePicture(id, left, top) }
             }
     }
@@ -132,8 +140,28 @@ fun WallCanvas(
             painter.draw(this, state, box, homography, selected, accent)
             if (calibrating == null) guidePainter.draw(this, guides, box, homography, accent, cm)
         }
+        if (calibrating == null && state.wall.format.aspect != Aspect.ORIGINAL) {
+            drawCrop(state.wall.format.crop(image.width.toDouble() / image.height), box)
+        }
         if (calibrating != null) drawCalibration(calibrating, image, box, dragged, accent, error)
     }
+}
+
+/** What falls outside the crop dimmed, so the image saved is what stays bright, with a line round it. */
+private fun DrawScope.drawCrop(crop: Crop, box: ImageBox) {
+    val topLeft = box.toScreen(Pt(crop.left, crop.top))
+    val bottomRight = box.toScreen(Pt(crop.left + crop.width, crop.top + crop.height))
+    val dim = Color.Black.copy(alpha = CROP_DIM)
+    val left = box.left
+    val right = box.left + box.width
+    val top = box.top
+    val bottom = box.top + box.height
+    // Above, below, and either side between them.
+    drawRect(dim, Offset(left, top), Size(box.width, topLeft.y - top))
+    drawRect(dim, Offset(left, bottomRight.y), Size(box.width, bottom - bottomRight.y))
+    drawRect(dim, Offset(left, topLeft.y), Size(topLeft.x - left, bottomRight.y - topLeft.y))
+    drawRect(dim, Offset(bottomRight.x, topLeft.y), Size(right - bottomRight.x, bottomRight.y - topLeft.y))
+    drawRect(Color.White, topLeft, Size(bottomRight.x - topLeft.x, bottomRight.y - topLeft.y), style = Stroke(1.5.dp.toPx()))
 }
 
 /** The calibration under way over the photo: grid, rectangle, corners, and the loupe while a corner is dragged. */
@@ -216,15 +244,25 @@ private suspend fun PointerInputScope.dragPictures(
     onGuides: (List<Guide>) -> Unit,
     onBegin: () -> Unit,
     onEnd: () -> Unit,
+    onMoveCrop: (Double, Double) -> Unit,
     onMove: (Long, Double, Double) -> Unit,
 ) {
     var id: Long? = null
+    var cropping = false
     var grabbed = Pt(0.0, 0.0)
     var from = CmRect(0.0, 0.0, 0.0, 0.0)
     detectDragGestures(
         onDragStart = start@{ down ->
             val now = state()
-            val hit = pictureAt(now, image, size.toSize(), down) ?: return@start
+            val hit = pictureAt(now, image, size.toSize(), down)
+            if (hit == null) {
+                // Off the pictures, a drag moves the crop — when there is one to move.
+                if (now.wall.format.aspect != Aspect.ORIGINAL) {
+                    cropping = true
+                    onBegin()
+                }
+                return@start
+            }
             val toWall = photoToWall(now) ?: return@start
             val point = toWall.map(fitImage(image, size.toSize()).toPhoto(down)) ?: return@start
             id = hit
@@ -234,16 +272,24 @@ private suspend fun PointerInputScope.dragPictures(
             onBegin()
         },
         onDragEnd = {
-            if (id != null) onEnd()
+            if (id != null || cropping) onEnd()
             id = null
+            cropping = false
             onGuides(emptyList())
         },
         onDragCancel = {
-            if (id != null) onEnd()
+            if (id != null || cropping) onEnd()
             id = null
+            cropping = false
             onGuides(emptyList())
         },
-        onDrag = drag@{ change, _ ->
+        onDrag = drag@{ change, delta ->
+            if (cropping) {
+                change.consume()
+                val box = fitImage(image, size.toSize())
+                onMoveCrop(delta.x / box.width.toDouble(), delta.y / box.height.toDouble())
+                return@drag
+            }
             val moving = id ?: return@drag
             change.consume()
             val now = state()
