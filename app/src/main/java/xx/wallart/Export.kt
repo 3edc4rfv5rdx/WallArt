@@ -69,7 +69,7 @@ object Export {
         val canvas = Canvas(image)
         canvas.drawBitmap(photo, null, RectF(box.left, box.top, box.left + box.width, box.top + box.height), Paint(Paint.FILTER_BITMAP_FLAG))
         photo.recycle()
-        val homography = wall.calibration?.wallToPhoto() ?: return image
+        val homography = wall.projection(photoRatio) ?: return image
         val photos = picturePhotos(context, wall, box, homography)
         try {
             val edge = max(outW, outH) * EDGE_PER_LONG_SIDE

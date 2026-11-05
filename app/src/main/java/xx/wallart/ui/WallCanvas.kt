@@ -202,9 +202,9 @@ fun WallCanvas(
         drawPhoto(image, box)
         // While calibrating, the pictures move with the corners: the calibration as it would be, once it is one.
         val homography = if (calibrating != null) {
-            calibrating.result?.wallToPhoto()
+            calibrating.result?.projection(state.wall.straight, box.ratio)
         } else {
-            state.wall.calibration?.wallToPhoto()
+            state.wall.projection(box.ratio)
         }
         if (homography != null) {
             val selected = if (calibrating == null) state.selected else null
@@ -359,7 +359,7 @@ private suspend fun PointerInputScope.dragPictures(
         onDragStart = start@{ down ->
             val now = state()
             val box = viewBox(image, size.toSize(), zoom())
-            val toWall = photoToWall(now)
+            val toWall = photoToWall(now, box)
             // While sizing, a handle of the selected picture first: it lies on the picture's own edge, where a drag
             // would move it.
             val handle = if (sizing()) selectedHandleAt(now, box, down, CORNER_REACH.toPx()) else null
@@ -409,8 +409,9 @@ private suspend fun PointerInputScope.dragPictures(
         onDrag = drag@{ change, delta ->
             resizing?.let { (picture, handle) ->
                 change.consume()
-                val toWall = photoToWall(state()) ?: return@drag
-                val point = toWall.map(viewBox(image, size.toSize(), zoom()).toPhoto(change.position)) ?: return@drag
+                val box = viewBox(image, size.toSize(), zoom())
+                val toWall = photoToWall(state(), box) ?: return@drag
+                val point = toWall.map(box.toPhoto(change.position)) ?: return@drag
                 // The handle moved by as much as the finger, which came down beside it, not on it.
                 val start = picture.bounds.handles[handle]
                 onResize(picture.id, picture, handle, Pt(start.x + point.x - grabbed.x, start.y + point.y - grabbed.y))
@@ -430,9 +431,9 @@ private suspend fun PointerInputScope.dragPictures(
             val moving = id ?: return@drag
             change.consume()
             val now = state()
-            val wallToPhoto = now.wall.calibration?.wallToPhoto() ?: return@drag
-            val toWall = wallToPhoto.inverse() ?: return@drag
             val box = viewBox(image, size.toSize(), zoom())
+            val wallToPhoto = now.wall.projection(box.ratio) ?: return@drag
+            val toWall = wallToPhoto.inverse() ?: return@drag
             // A finger past the horizon has no place on the wall: the picture waits where it was.
             val point = toWall.map(box.toPhoto(change.position)) ?: return@drag
             val raw = from.copy(left = from.left + point.x - grabbed.x, top = from.top + point.y - grabbed.y)
@@ -457,7 +458,7 @@ private fun cmPerPx(rect: CmRect, wallToPhoto: Homography, box: ImageBox): Doubl
 /** The selected picture and which of its handles is within [reach] of [at] on screen, the nearest; null for none. */
 private fun selectedHandleAt(state: EditorState, box: ImageBox, at: Offset, reach: Float): Pair<Picture, Int>? {
     val picture = state.selectedPicture ?: return null
-    val homography = state.wall.calibration?.wallToPhoto() ?: return null
+    val homography = state.wall.projection(box.ratio) ?: return null
     val handles = picture.bounds.handles.map { homography.map(it)?.let(box::toScreen) ?: return null }
     val nearest = handles.indices.minBy { (handles[it] - at).getDistance() }
     return if ((handles[nearest] - at).getDistance() <= reach) picture to nearest else null
@@ -474,12 +475,12 @@ private val CmRect.handles: List<Pt>
 
 private const val HANDLE_COUNT = 8
 
-/** The photo's 0..1 coordinates onto the wall's centimetres; null without a calibration. */
-private fun photoToWall(state: EditorState): Homography? = state.wall.calibration?.wallToPhoto()?.inverse()
+/** The photo's 0..1 coordinates, with the photo in [box], onto the wall's centimetres; null without a calibration. */
+private fun photoToWall(state: EditorState, box: ImageBox): Homography? = state.wall.projection(box.ratio)?.inverse()
 
 /** The frontmost picture under [at] with the photo in [box]; null for none, or without a calibration. */
 private fun pictureAt(state: EditorState, box: ImageBox, at: Offset): Long? {
-    val homography = state.wall.calibration?.wallToPhoto() ?: return null
+    val homography = state.wall.projection(box.ratio) ?: return null
     val point = Pt(at.x.toDouble(), at.y.toDouble())
     return state.wall.pictures.lastOrNull { picture ->
         val quad = picture.bounds.corners.map { corner ->
@@ -492,6 +493,9 @@ private fun pictureAt(state: EditorState, box: ImageBox, at: Offset): Long? {
 
 /** Where the photo lies in the box: fitted whole, centred. */
 internal class ImageBox(val left: Float, val top: Float, val width: Float, val height: Float) {
+    /** The photo's width in heights. */
+    val ratio: Double get() = width.toDouble() / height
+
     fun toScreen(p: Pt) = Offset(left + (p.x * width).toFloat(), top + (p.y * height).toFloat())
     fun toPhoto(o: Offset) = Pt(((o.x - left) / width).toDouble(), ((o.y - top) / height).toDouble())
 }

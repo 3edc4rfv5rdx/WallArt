@@ -57,6 +57,70 @@ class CalibrationTest {
         assertTrue(isConvexClockwise(INITIAL_CORNERS))
     }
 
+    private val photoRatio = 4.0 / 3
+
+    @Test
+    fun `straight frames are square to the photo`() {
+        val h = Calibration(door, 80.0, 200.0).projection(straight = true, photoRatio)!!
+        val topLeft = h.map(Pt(-30.0, -40.0))!!
+        val topRight = h.map(Pt(150.0, -40.0))!!
+        val bottomRight = h.map(Pt(150.0, 300.0))!!
+        val bottomLeft = h.map(Pt(-30.0, 300.0))!!
+        assertEquals(topLeft.y, topRight.y, 1e-9)
+        assertEquals(bottomLeft.y, bottomRight.y, 1e-9)
+        assertEquals(topLeft.x, bottomLeft.x, 1e-9)
+        assertEquals(topRight.x, bottomRight.x, 1e-9)
+    }
+
+    @Test
+    fun `straight frames keep a centimetre as long across as down`() {
+        val h = Calibration(door, 80.0, 200.0).projection(straight = true, photoRatio)!!
+        val origin = h.map(Pt(0.0, 0.0))!!
+        val across = (h.map(Pt(10.0, 0.0))!!.x - origin.x) * photoRatio
+        val down = h.map(Pt(0.0, 10.0))!!.y - origin.y
+        assertEquals(across, down, 1e-9)
+        assertTrue(across > 0)
+    }
+
+    @Test
+    fun `straight frames keep the rectangle's middle and the area of its corners`() {
+        val calibration = Calibration(door, 80.0, 200.0)
+        val h = calibration.projection(straight = true, photoRatio)!!
+        assertNear(calibration.wallToPhoto()!!.map(Pt(40.0, 100.0))!!, h.map(Pt(40.0, 100.0)))
+        val width = h.map(Pt(80.0, 0.0))!!.x - h.map(Pt(0.0, 0.0))!!.x
+        val height = h.map(Pt(0.0, 200.0))!!.y - h.map(Pt(0.0, 0.0))!!.y
+        // The door's trapezoid: sides 0.6 and 0.44 long, 0.3 apart.
+        assertEquals(0.156, width * height, 1e-9)
+    }
+
+    @Test
+    fun `straight frames lead back from the photo to the wall`() {
+        val h = Calibration(door, 80.0, 200.0).projection(straight = true, photoRatio)!!
+        val point = Pt(-120.0, 350.0)
+        assertNear(point, h.inverse()!!.map(h.map(point)!!))
+    }
+
+    @Test
+    fun `without straight frames the wall's perspective stays`() {
+        val h = Calibration(door, 80.0, 200.0).projection(straight = false, photoRatio)!!
+        assertNear(door[1], h.map(Pt(80.0, 0.0)))
+    }
+
+    @Test
+    fun `corners no rectangle photographs as make no straight frames either`() {
+        val crossed = listOf(door[0], door[2], door[1], door[3])
+        assertNull(Calibration(crossed, 80.0, 200.0).projection(straight = true, photoRatio))
+    }
+
+    @Test
+    fun `a wall follows its straight flag, and has no projection without a calibration`() {
+        val calibration = Calibration(door, 80.0, 200.0)
+        assertNull(Wall().projection(photoRatio))
+        assertNear(door[1], Wall(calibration = calibration).projection(photoRatio)!!.map(Pt(80.0, 0.0)))
+        val straight = Wall(calibration = calibration, straight = true).projection(photoRatio)!!
+        assertEquals(straight.map(Pt(0.0, 0.0))!!.y, straight.map(Pt(80.0, 0.0))!!.y, 1e-9)
+    }
+
     @Test
     fun `no size makes no calibration`() {
         assertNull(calibrationHomography(door, 0.0, 200.0))

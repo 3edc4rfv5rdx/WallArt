@@ -263,7 +263,7 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
     private fun placed(state: EditorState, spec: ArtSpec, name: String?, bitmap: ImageBitmap?): EditorState {
         val calibration = state.wall.calibration ?: return state
         val id = state.wall.nextId()
-        val picture = newPicture(id, photoCentreOnWall(calibration), spec, name)
+        val picture = newPicture(id, photoCentreOnWall(state, calibration), spec, name)
         val photos = if (name != null && bitmap != null) state.photos + (name to bitmap) else state.photos
         return state.copy(wall = state.wall.copy(pictures = state.wall.pictures + picture), photos = photos, selected = id)
     }
@@ -356,6 +356,10 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
 
     fun toggleShadow() {
         commit { it.copy(wall = it.wall.copy(shadow = !it.wall.shadow)) }
+    }
+
+    fun toggleStraight() {
+        commit { it.copy(wall = it.wall.copy(straight = !it.wall.straight)) }
     }
 
     /** The wall a step back; not while a drag, a calibration or a photo coming in is under way. */
@@ -497,8 +501,9 @@ private fun loadPhotos(context: Application, wall: Wall): Map<String, ImageBitma
 
 /**
  * Where the middle of the photo is on the wall, in centimetres; the middle of
- * the calibration's rectangle when the photo's is past the wall's horizon.
+ * the calibration's rectangle when the photo's is past the wall's horizon, or
+ * the photo cannot be read.
  */
-private fun photoCentreOnWall(calibration: Calibration): Pt =
-    calibration.wallToPhoto()?.inverse()?.map(Pt(0.5, 0.5))
+private fun photoCentreOnWall(state: EditorState, calibration: Calibration): Pt =
+    state.image?.let { state.wall.projection(it.width.toDouble() / it.height) }?.inverse()?.map(Pt(0.5, 0.5))
         ?: Pt(calibration.widthCm / 2, calibration.heightCm / 2)

@@ -44,6 +44,10 @@ A standalone app with no code shared with PhotoCollage (apart from the shared
   are projected onto the photo through the calibration when drawn.
 - Alignment for a gallery wall (by edge, by centre, equal gaps).
 - A shadow on the wall — a checkbox in the ⋮ menu, for all pictures.
+- "Straight frames" — a checkbox in the ⋮ menu, for the whole wall, off at
+  first: the pictures are drawn as rectangles square to the photo, at one
+  scale, with no perspective. The calibration still gives the scale (its
+  corners' area) and the centre.
 - Add, remove, replace the frame's or the artwork's photo, change the order.
 
 ## Saving

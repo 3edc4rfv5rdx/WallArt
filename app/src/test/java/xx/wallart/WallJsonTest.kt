@@ -1,5 +1,6 @@
 package xx.wallart
 
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -14,12 +15,19 @@ class WallJsonTest {
             Picture(2, CmRect(60.0, 20.0, 30.0, 40.0), mouldingCm = 0.0, frameColor = 0xFFC9A23F.toInt(), framePhoto = "f.jpg"),
         ),
         shadow = false,
+        straight = true,
     )
 
     @Test
     fun `a wall comes back as it was written`() {
         assertEquals(wall, WallJson.read(WallJson.write(wall)))
         assertEquals(Wall(), WallJson.read(WallJson.write(Wall())))
+    }
+
+    @Test
+    fun `a wall kept before straight frames hangs in perspective`() {
+        val older = JSONObject(WallJson.write(wall)).apply { remove("straight") }.toString()
+        assertEquals(wall.copy(straight = false), WallJson.read(older))
     }
 
     @Test

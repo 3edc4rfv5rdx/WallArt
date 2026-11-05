@@ -35,6 +35,7 @@
     <string name="send_backward">Ниже</string>
     <string name="remove_picture">Удалить картину</string>
     <string name="shadow">Тень</string>
+    <string name="straight_frames">Ровные рамки</string>
     <string name="calibrate_first">Сначала откалибруйте стену</string>
     <string name="undo">Отменить</string>
     <string name="redo">Повторить</string>

@@ -24,6 +24,7 @@ object WallJson {
             )
         }
         put("shadow", wall.shadow)
+        put("straight", wall.straight)
         put(
             "format",
             JSONObject()
@@ -54,6 +55,7 @@ object WallJson {
                 )
             },
             shadow = json.optBoolean("shadow", true),
+            straight = json.optBoolean("straight", false),
             // Walls kept before there was a format have the default one.
             format = json.optJSONObject("format")?.let { format(it) } ?: Format(),
             pictures = json.getJSONArray("pictures").let { list -> (0 until list.length()).map { picture(list.getJSONObject(it)) } },

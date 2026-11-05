@@ -27,6 +27,8 @@ The specification is in [docs/SPEC.md](docs/SPEC.md).
   - Resize: corner handles keep the shape, side handles change one way.
   - Frame colour or photo, stack order, Duplicate for a gallery wall.
   - Shadow in the ⋮ menu.
+  - Straight frames in the ⋮ menu: square to the photo at one scale, not in
+    the wall's perspective, for a photo taken about square-on.
 - **Format**: the saved image's way round, shape (the photo's own, 1:1,
   4:5, 3:4, 2:3, 9:16, A4), size and preset (Instagram, Full HD, 10×15,
   A4 300 dpi and more), as in PhotoCollage. Any shape but the photo's own

@@ -186,6 +186,7 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
                 }
             },
             onShadow = vm::toggleShadow,
+            onStraight = vm::toggleStraight,
             onSettings = onSettings,
             onAbout = onAbout,
         )
@@ -345,6 +346,7 @@ private fun TopBar(
     onAddPicture: () -> Unit,
     onPictureTool: (PictureTool) -> Unit,
     onShadow: () -> Unit,
+    onStraight: () -> Unit,
     onSettings: () -> Unit,
     onAbout: () -> Unit,
 ) {
@@ -416,6 +418,10 @@ private fun TopBar(
                 AppMenuItem(stringResource(R.string.shadow), checked = state.wall.shadow) {
                     menu = false
                     onShadow()
+                }
+                AppMenuItem(stringResource(R.string.straight_frames), checked = state.wall.straight) {
+                    menu = false
+                    onStraight()
                 }
                 AppMenuItem(stringResource(R.string.settings)) {
                     menu = false

@@ -1,6 +1,7 @@
 package xx.wallart
 
 import kotlin.math.abs
+import kotlin.math.sqrt
 
 /**
  * A rectangle of known size on the wall, as the photo shows it: its corners
@@ -12,6 +13,39 @@ data class Calibration(val corners: List<Pt>, val widthCm: Double, val heightCm:
 
     /** The wall's centimetres onto the photo's 0..1 coordinates; null for a shape no rectangle photographs as. */
     fun wallToPhoto(): Homography? = calibrationHomography(corners, widthCm, heightCm)
+
+    /**
+     * How the wall's pictures are projected onto the photo, whose width is
+     * [photoRatio] heights: through the wall's perspective, or [straight] on
+     * it; null for a shape no rectangle photographs as.
+     */
+    fun projection(straight: Boolean, photoRatio: Double): Homography? =
+        if (straight) straightToPhoto(photoRatio) else wallToPhoto()
+
+    /**
+     * The wall square to the photo, a centimetre as long across as down: the
+     * rectangle keeps its true shape and its middle, and covers as much of the
+     * photo as its corners do, so the corners' small errors barely show.
+     */
+    private fun straightToPhoto(photoRatio: Double): Homography? {
+        val centre = wallToPhoto()?.map(Pt(widthCm / 2, heightCm / 2)) ?: return null
+        // The corners' area by the shoelace formula, in photo heights squared: positive, as they turn clockwise.
+        val area = corners.indices.sumOf { i ->
+            val a = corners[i]
+            val b = corners[(i + 1) % corners.size]
+            a.x * b.y - b.x * a.y
+        } / 2 * photoRatio
+        val heightsPerCm = sqrt(area / (widthCm * heightCm))
+        val halfWidth = widthCm / 2 * heightsPerCm / photoRatio
+        val halfHeight = heightCm / 2 * heightsPerCm
+        val square = listOf(
+            Pt(centre.x - halfWidth, centre.y - halfHeight),
+            Pt(centre.x + halfWidth, centre.y - halfHeight),
+            Pt(centre.x + halfWidth, centre.y + halfHeight),
+            Pt(centre.x - halfWidth, centre.y + halfHeight),
+        )
+        return calibrationHomography(square, widthCm, heightCm)
+    }
 }
 
 /** The projection of a [widthCm] × [heightCm] rectangle onto [corners]; null when they cannot be one. */
@@ -199,15 +233,20 @@ fun newPicture(id: Long, centre: Pt, spec: ArtSpec, artPhoto: String?): Picture 
 /**
  * The wall: its [photo] as [Photos] keeps it, its [calibration] once one is
  * made, the [pictures] on it from the back to the front, whether they cast a
- * [shadow], and the [format] the image is saved in.
+ * [shadow], whether they hang [straight] on the photo instead of in the wall's
+ * perspective, and the [format] the image is saved in.
  */
 data class Wall(
     val photo: String? = null,
     val calibration: Calibration? = null,
     val pictures: List<Picture> = emptyList(),
     val shadow: Boolean = true,
+    val straight: Boolean = false,
     val format: Format = Format(),
 ) {
+    /** The wall's centimetres onto a photo [photoRatio] heights wide, as its pictures are drawn; null without a calibration that makes one. */
+    fun projection(photoRatio: Double): Homography? = calibration?.projection(straight, photoRatio)
+
     /** [id]'s picture changed by [change]; the rest as they were. */
     fun updated(id: Long, change: (Picture) -> Picture): Wall =
         copy(pictures = pictures.map { if (it.id == id) change(it) else it })
