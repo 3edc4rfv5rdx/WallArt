@@ -11,8 +11,9 @@ class WallJsonTest {
         photo = "wall.jpg",
         calibration = Calibration(listOf(Pt(0.3, 0.2), Pt(0.6, 0.28), Pt(0.6, 0.72), Pt(0.3, 0.8)), 80.0, 200.5),
         pictures = listOf(
-            Picture(1, CmRect(-10.5, 20.0, 50.0, 70.0), artPhoto = "a.jpg"),
-            Picture(2, CmRect(60.0, 20.0, 30.0, 40.0), mouldingCm = 0.0, frameColor = 0xFFC9A23F.toInt(), framePhoto = "f.jpg"),
+            Picture(1, CmRect(-10.5, 20.0, 50.0, 70.0), artPhoto = "a.jpg", hanging = Hanging(4.5)),
+            Picture(2, CmRect(60.0, 20.0, 30.0, 40.0), mouldingCm = 0.0, frameColor = 0xFFC9A23F.toInt(), framePhoto = "f.jpg", hanging = Hanging(2.0, 15.0)),
+            Picture(3, CmRect(100.0, 20.0, 30.0, 40.0)),
         ),
         shadow = false,
         straight = true,

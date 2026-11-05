@@ -11,6 +11,65 @@ class WallTest {
 
     private val door = listOf(Pt(0.30, 0.20), Pt(0.60, 0.28), Pt(0.60, 0.72), Pt(0.30, 0.80))
 
+    private val framed = Picture(1, CmRect(10.0, 20.0, 40.0, 50.0))
+
+    @Test
+    fun `a picture has no nails till its hanging is said`() {
+        assertEquals(emptyList<Pt>(), framed.nails)
+    }
+
+    @Test
+    fun `one nail goes in the middle, the drop below the frame's top`() {
+        assertEquals(listOf(Pt(30.0, 24.5)), framed.copy(hanging = Hanging(4.5)).nails)
+    }
+
+    @Test
+    fun `two nails go either side of the middle, as far apart as said`() {
+        assertEquals(listOf(Pt(20.0, 22.0), Pt(40.0, 22.0)), framed.copy(hanging = Hanging(2.0, 20.0)).nails)
+    }
+
+    @Test
+    fun `nails follow the picture moved, and are copied with it`() {
+        val hung = framed.copy(hanging = Hanging(2.0))
+        val moved = hung.copy(bounds = hung.bounds.copy(left = -10.0, top = 0.0))
+        assertEquals(listOf(Pt(10.0, 2.0)), moved.nails)
+        val copy = Wall(pictures = listOf(hung)).duplicated(1)!!.first.pictures.last()
+        assertEquals(hung.hanging, copy.hanging)
+    }
+
+    @Test
+    fun `a hanging has to fit the frame, its edges included`() {
+        val frame = framed.bounds
+        assertTrue(isHanging(Hanging(0.0), frame))
+        assertTrue(isHanging(Hanging(50.0, 40.0), frame))
+        assertFalse(isHanging(Hanging(50.1), frame))
+        assertFalse(isHanging(Hanging(-1.0), frame))
+        assertFalse(isHanging(Hanging(2.0, 40.1), frame))
+        assertFalse(isHanging(Hanging(2.0, 0.0), frame))
+    }
+
+    @Test
+    fun `the drop offered is the width of the top rail in whole centimetres`() {
+        assertEquals(3.0, framed.copy(mouldingCm = 3.0).topRailDropCm, 0.0)
+        assertEquals(3.0, framed.copy(mouldingCm = 2.5).topRailDropCm, 0.0)
+        assertEquals(2.0, framed.copy(mouldingCm = 2.4).topRailDropCm, 0.0)
+        assertEquals(0.0, framed.copy(mouldingCm = 0.0).topRailDropCm, 0.0)
+    }
+
+    @Test
+    fun `a frame sized so its hanging no longer fits shows no nails, and keeps it for a size it fits again`() {
+        val hung = framed.copy(hanging = Hanging(30.0))
+        val small = hung.withArtSize(10.0, 10.0, 3.0)
+        assertEquals(emptyList<Pt>(), small.nails)
+        assertEquals(1, small.withArtSize(34.0, 44.0, 3.0).nails.size)
+    }
+
+    @Test
+    fun `a nail's label says which way and how far, to a tenth`() {
+        assertEquals("→ 38  ↓ 12 cm", nailLabel(Pt(38.04, 12.46), "cm"))
+        assertEquals("← 4  ↑ 0 cm", nailLabel(Pt(-3.5, -0.01), "cm"))
+    }
+
     @Test
     fun `the inverse takes the photo back to the wall's centimetres`() {
         val h = calibrationHomography(door, 80.0, 200.0)!!

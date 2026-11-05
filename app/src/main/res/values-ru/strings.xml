@@ -34,6 +34,12 @@
     <string name="bring_forward">Выше</string>
     <string name="send_backward">Ниже</string>
     <string name="remove_picture">Удалить картину</string>
+    <string name="hanging">Крепление</string>
+    <string name="hanging_drop">От верха рамы</string>
+    <string name="hanging_points">Точек крепления</string>
+    <string name="point_spacing">Между точками</string>
+    <string name="hanging_hint">Стрелки на стене отсчитываются от левого верхнего угла калибровки</string>
+    <string name="remove_hanging">Убрать</string>
     <string name="shadow">Тень</string>
     <string name="straight_frames">Ровные рамки</string>
     <string name="without_pictures">Стена без картин, пока нажато</string>

@@ -74,7 +74,8 @@ data class CmRect(val left: Double, val top: Double, val width: Double, val heig
  * One picture on the wall: a frame [bounds] outside, its moulding [mouldingCm]
  * wide, and the artwork filling what the moulding leaves. The frame is
  * [framePhoto] stretched over it when there is one, [frameColor] (ARGB)
- * otherwise; the photos are named as [Photos] keeps them.
+ * otherwise; the photos are named as [Photos] keeps them. [hanging] is how it
+ * hangs, once the user has said.
  */
 data class Picture(
     val id: Long,
@@ -83,9 +84,28 @@ data class Picture(
     val frameColor: Int = DEFAULT_FRAME_COLOR,
     val framePhoto: String? = null,
     val artPhoto: String? = null,
+    val hanging: Hanging? = null,
 ) {
     /** Where the artwork shows: inside the moulding. */
     val opening get() = bounds.inset(mouldingCm)
+
+    /** The drop to offer first: the top rail's width, in whole centimetres. */
+    val topRailDropCm get() = Math.round(mouldingCm).toDouble()
+
+    /**
+     * Where its nails go on the wall, left first, in centimetres from the
+     * calibration's top left corner: none till its [hanging] is said, or once
+     * the frame has been sized so that it no longer fits, as a figure that
+     * cannot be true is worse than none.
+     */
+    val nails: List<Pt>
+        get() {
+            val hung = hanging?.takeIf { isHanging(it, bounds) } ?: return emptyList()
+            val x = bounds.left + bounds.width / 2
+            val y = bounds.top + hung.dropCm
+            val spacing = hung.spacingCm ?: return listOf(Pt(x, y))
+            return listOf(Pt(x - spacing / 2, y), Pt(x + spacing / 2, y))
+        }
 
     /** Its artwork's size and its frame's width. */
     val spec get() = ArtSpec(opening.width, opening.height, mouldingCm)
@@ -187,6 +207,24 @@ const val DEFAULT_FRAME_COLOR = 0xFF2B2622.toInt()
 
 /** Whether an artwork [width] × [height] in a frame [moulding] wide is a picture: both there, the frame none or some. */
 fun isArtSize(width: Double, height: Double, moulding: Double): Boolean = width > 0 && height > 0 && moulding >= 0
+
+/**
+ * How a frame hangs: [dropCm] down from its top edge to where it rests on its
+ * nails — a loop on the top rail, or a wire pulled up as it will be — on one
+ * nail in the middle, or on two [spacingCm] apart, centred, when that is given.
+ */
+data class Hanging(val dropCm: Double, val spacingCm: Double? = null)
+
+/** Whether [hanging] fits a frame [frame]: its nails behind the frame, not past its sides or below it. */
+fun isHanging(hanging: Hanging, frame: CmRect): Boolean =
+    hanging.dropCm in 0.0..frame.height && (hanging.spacingCm == null || hanging.spacingCm > 0 && hanging.spacingCm <= frame.width)
+
+/** A nail's place from the calibration's top left corner, as a label on the wall: which way and how far, across and down, in whole centimetres. */
+fun nailLabel(nail: Pt, cm: String): String {
+    val across = if (nail.x < 0) "←" else "→"
+    val down = if (nail.y < 0) "↑" else "↓"
+    return "$across ${Math.round(abs(nail.x))}  $down ${Math.round(abs(nail.y))} $cm"
+}
 
 /** A picture's size as it is chosen: its artwork [widthCm] × [heightCm], in a frame [mouldingCm] wide. */
 data class ArtSpec(val widthCm: Double, val heightCm: Double, val mouldingCm: Double)

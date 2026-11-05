@@ -111,13 +111,14 @@ private val BOTTOM_PANEL_HEIGHT = 64.dp
 private enum class Pick { WALL, NEW_PICTURE, ART, FRAME }
 
 /** The dialog open over the editor, if any. */
-private enum class Dialog { NONE, NEW_PICTURE, SIZE, FRAME_COLOR, NEW_WALL, OPEN_DRAFT, FORMAT }
+private enum class Dialog { NONE, NEW_PICTURE, SIZE, HANGING, FRAME_COLOR, NEW_WALL, OPEN_DRAFT, FORMAT }
 
 /** The selected picture's tools, in the pencil's menu. */
 private enum class PictureTool(@param:StringRes val text: Int) {
     ART(R.string.artwork_photo),
     SIZE(R.string.size),
     RESIZE(R.string.resize),
+    HANGING(R.string.hanging),
     FRAME_COLOR(R.string.frame_color),
     FRAME_PHOTO(R.string.frame_photo),
     FORWARD(R.string.bring_forward),
@@ -183,6 +184,7 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
                     PictureTool.ART -> choosePhoto(Pick.ART)
                     PictureTool.SIZE -> dialog = Dialog.SIZE
                     PictureTool.RESIZE -> sizing = true
+                    PictureTool.HANGING -> dialog = Dialog.HANGING
                     PictureTool.FRAME_COLOR -> dialog = Dialog.FRAME_COLOR
                     PictureTool.FRAME_PHOTO -> choosePhoto(Pick.FRAME)
                     PictureTool.FORWARD -> vm.restackSelected(1)
@@ -329,6 +331,10 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
                 spec?.let(vm::setArtSize)
                 dialog = Dialog.NONE
             }
+        }
+        dialog == Dialog.HANGING -> HangingDialog(picture, onDismiss = { dialog = Dialog.NONE }) {
+            vm.setHanging(it)
+            dialog = Dialog.NONE
         }
         dialog == Dialog.FRAME_COLOR -> FrameColorDialog(
             current = picture.frameColor.takeIf { picture.framePhoto == null },

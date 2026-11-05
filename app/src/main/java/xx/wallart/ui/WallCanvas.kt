@@ -55,6 +55,7 @@ import xx.wallart.calibrationHomography
 import xx.wallart.formatCm
 import xx.wallart.gridStep
 import xx.wallart.insideConvex
+import xx.wallart.nailLabel
 import xx.wallart.parseCm
 import xx.wallart.snapPicture
 import kotlin.math.floor
@@ -66,6 +67,10 @@ private val LABEL_LIFT = 14.dp
 
 /** How dark what the crop leaves out is drawn. */
 private const val CROP_DIM = 0.55f
+
+/** A nail's mark on the wall, and how far under it the second nail's label is centred. */
+private val NAIL_RADIUS = 5.dp
+private val NAIL_LABEL_BELOW = 22.dp
 
 /** How near on screen a dragged picture's edge, centre or gap has to come to another's to snap to it. */
 private val SNAP_REACH = 10.dp
@@ -235,6 +240,20 @@ fun WallCanvas(
                         val top = Offset(handles[4].x, minOf(handles[0].y, handles[1].y, handles[4].y) - LABEL_LIFT.toPx())
                         val o = picture.opening
                         guidePainter.label(this, "${formatCm(o.width)}×${formatCm(o.height)} $cm", top, accent, above = true)
+                    }
+                }
+                state.selectedPicture?.nails?.takeIf { it.isNotEmpty() }?.let { nails ->
+                    // What the figures count from.
+                    homography.map(Pt(0.0, 0.0))?.let { drawHangingOrigin(box.toScreen(it), accent) }
+                    nails.forEachIndexed { index, nail ->
+                        val at = homography.map(nail)?.let(box::toScreen) ?: return@forEachIndexed
+                        drawNail(at, accent)
+                        // One above and one below: two nails close together would cover each other's labels.
+                        if (index == 0) {
+                            guidePainter.label(this, nailLabel(nail, cm), at - Offset(0f, NAIL_RADIUS.toPx()), accent, above = true)
+                        } else {
+                            guidePainter.label(this, nailLabel(nail, cm), at + Offset(0f, NAIL_LABEL_BELOW.toPx()), accent)
+                        }
                     }
                 }
             }
@@ -628,6 +647,17 @@ private fun DrawScope.drawQuad(corners: List<Offset>, color: Color) {
 private fun DrawScope.drawCorner(at: Offset, color: Color) {
     drawCircle(Color.White, CORNER_RADIUS.toPx(), at)
     drawCircle(color, CORNER_RADIUS.toPx() - 2.dp.toPx(), at)
+}
+
+private fun DrawScope.drawNail(at: Offset, color: Color) {
+    drawCircle(Color.White, NAIL_RADIUS.toPx(), at)
+    drawCircle(color, NAIL_RADIUS.toPx() - 1.5.dp.toPx(), at)
+}
+
+/** A ring on the point the nails' figures count from: open, not to be taken for a nail or a handle. */
+private fun DrawScope.drawHangingOrigin(at: Offset, color: Color) {
+    drawCircle(Color.White, CORNER_RADIUS.toPx(), at, style = Stroke(4.dp.toPx()))
+    drawCircle(color, CORNER_RADIUS.toPx(), at, style = Stroke(2.dp.toPx()))
 }
 
 /**

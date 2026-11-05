@@ -293,6 +293,9 @@ class WallViewModel(application: Application) : AndroidViewModel(application) {
         updateSelected { it.withArtSize(spec.widthCm, spec.heightCm, spec.mouldingCm) }
     }
 
+    /** How the selected picture hangs; null when that is no longer said. */
+    fun setHanging(hanging: Hanging?) = updateSelected { it.copy(hanging = hanging) }
+
     /** A picture's drag starting: what it moves is one step, however many moves it makes. */
     fun beginDrag() {
         dragStart = _state.value.wall

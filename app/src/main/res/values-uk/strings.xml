@@ -34,6 +34,12 @@
     <string name="bring_forward">Вище</string>
     <string name="send_backward">Нижче</string>
     <string name="remove_picture">Видалити картину</string>
+    <string name="hanging">Кріплення</string>
+    <string name="hanging_drop">Від верху рами</string>
+    <string name="hanging_points">Точок кріплення</string>
+    <string name="point_spacing">Між точками</string>
+    <string name="hanging_hint">Стрілки на стіні відраховуються від лівого верхнього кута калібрування</string>
+    <string name="remove_hanging">Прибрати</string>
     <string name="shadow">Тінь</string>
     <string name="straight_frames">Рівні рамки</string>
     <string name="without_pictures">Стіна без картин, поки натиснуто</string>

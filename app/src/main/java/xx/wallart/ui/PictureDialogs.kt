@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -32,13 +33,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import xx.wallart.ArtSize
 import xx.wallart.ArtSpec
+import xx.wallart.Hanging
+import xx.wallart.Picture
 import xx.wallart.STANDARD_ART_SIZES
 import xx.wallart.R
 import xx.wallart.formatCm
 import xx.wallart.isArtSize
+import xx.wallart.isHanging
 import xx.wallart.standardSizeOf
 import xx.wallart.parseCm
 
@@ -51,6 +56,9 @@ private val FRAME_COLORS = listOf(
 
 /** How far a tap on − or + moves an artwork's side or the frame's width, in centimetres. */
 private const val CM_STEP = 1.0
+
+/** The room a small figure has between its − and +: enough for "120.5" inside a text field's padding. */
+private val COMPACT_VALUE_WIDTH = 88.dp
 
 /**
  * Under [title], a picture's artwork size and frame width in centimetres, starting at
@@ -114,6 +122,52 @@ fun PictureSizeDialog(title: String, initial: ArtSpec, onDismiss: () -> Unit, bu
     )
 }
 
+/**
+ * How a picture in [frame] hangs, starting at [current]: how far down from the
+ * frame's top it rests on its nails, and one nail or two, half the frame's
+ * width apart to start with. [onDone] is given what is set, or null when
+ * [current] is taken away.
+ */
+@Composable
+fun HangingDialog(picture: Picture, onDismiss: () -> Unit, onDone: (Hanging?) -> Unit) {
+    val frame = picture.bounds
+    val current = picture.hanging
+    var drop by rememberSaveable { mutableStateOf(formatCm(current?.dropCm ?: picture.topRailDropCm)) }
+    var two by rememberSaveable { mutableStateOf(current?.spacingCm != null) }
+    var spacing by rememberSaveable { mutableStateOf(formatCm(current?.spacingCm ?: Math.round(frame.width / 2).toDouble())) }
+    val cm = stringResource(R.string.cm)
+    val hanging = parseCm(drop, allowZero = true)?.let { d ->
+        if (two) parseCm(spacing)?.let { Hanging(d, it) } else Hanging(d)
+    }?.takeIf { isHanging(it, frame) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.hanging)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                CompactCmRow("${stringResource(R.string.hanging_drop)}, $cm", drop, allowZero = true) { drop = it }
+                StepperRow(
+                    stringResource(R.string.hanging_points),
+                    onLess = { two = false },
+                    onMore = { two = true },
+                    lessEnabled = two,
+                    moreEnabled = !two,
+                ) {
+                    Text(if (two) "2" else "1", style = MaterialTheme.typography.bodyLarge)
+                }
+                if (two) CompactCmRow("${stringResource(R.string.point_spacing)}, $cm", spacing, allowZero = false) { spacing = it }
+                Text(stringResource(R.string.hanging_hint), style = MaterialTheme.typography.bodySmall)
+            }
+        },
+        dismissButton = { DialogDismissButton(stringResource(R.string.cancel), onDismiss) },
+        confirmButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (current != null) DialogButton(stringResource(R.string.remove_hanging)) { onDone(null) }
+                DialogButton(stringResource(R.string.done), enabled = hanging != null) { onDone(hanging) }
+            }
+        },
+    )
+}
+
 /** A standard size as the list shows it: short side by long, and its name after it if it has one. */
 private fun sizeLabel(size: ArtSize): String {
     val sides = "${formatCm(size.short)}×${formatCm(size.long)}"
@@ -121,17 +175,59 @@ private fun sizeLabel(size: ArtSize): String {
 }
 
 /**
+ * [value], a length in centimetres, moved by [by]: never below [floor], and to
+ * a tenth, so steps from a typed fraction stay readable.
+ */
+private fun steppedCm(value: String, by: Double, floor: Double): String {
+    val now = parseCm(value, allowZero = true) ?: floor
+    return formatCm((Math.round((now + by) * 10) / 10.0).coerceAtLeast(floor))
+}
+
+/** [label] on the left, and what is set between − and + on the right, for a small figure that needs no more room. */
+@Composable
+private fun StepperRow(
+    label: String,
+    onLess: () -> Unit,
+    onMore: () -> Unit,
+    lessEnabled: Boolean = true,
+    moreEnabled: Boolean = true,
+    value: @Composable () -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        FilledIconButton(onClick = onLess, enabled = lessEnabled) { Icon(Icons.Filled.Remove, contentDescription = stringResource(R.string.less)) }
+        Box(Modifier.width(COMPACT_VALUE_WIDTH), contentAlignment = Alignment.Center) { value() }
+        FilledIconButton(onClick = onMore, enabled = moreEnabled) { Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.more)) }
+    }
+}
+
+/** A length in centimetres in a [StepperRow], typed or moved by − and +: not below [CM_STEP], or below nothing when [allowZero]. */
+@Composable
+private fun CompactCmRow(label: String, value: String, allowZero: Boolean, onChange: (String) -> Unit) {
+    val floor = if (allowZero) 0.0 else CM_STEP
+    StepperRow(
+        label,
+        onLess = { onChange(steppedCm(value, -CM_STEP, floor)) },
+        onMore = { onChange(steppedCm(value, CM_STEP, floor)) },
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onChange,
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            textStyle = MaterialTheme.typography.bodyLarge.copy(textAlign = TextAlign.Center),
+        )
+    }
+}
+
+/**
  * A length in centimetres, typed or moved [step] at a time by − and +: never
- * below a step — or below nothing, when [allowZero] — and to a tenth, so
- * steps from a typed fraction stay readable.
+ * below a step, or below nothing when [allowZero].
  */
 @Composable
 private fun CmField(label: String, value: String, step: Double, allowZero: Boolean, onChange: (String) -> Unit) {
     val floor = if (allowZero) 0.0 else step
-    fun stepped(by: Double): String {
-        val now = parseCm(value, allowZero = true) ?: floor
-        return formatCm((Math.round((now + by) * 10) / 10.0).coerceAtLeast(floor))
-    }
+    fun stepped(by: Double): String = steppedCm(value, by, floor)
     Row(verticalAlignment = Alignment.CenterVertically) {
         FilledIconButton(onClick = { onChange(stepped(-step)) }) { Icon(Icons.Filled.Remove, contentDescription = stringResource(R.string.less)) }
         OutlinedTextField(

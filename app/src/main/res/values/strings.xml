@@ -34,6 +34,12 @@
     <string name="bring_forward">Bring forward</string>
     <string name="send_backward">Send backward</string>
     <string name="remove_picture">Remove picture</string>
+    <string name="hanging">Hanging</string>
+    <string name="hanging_drop">From the top of the frame</string>
+    <string name="hanging_points">Hanging points</string>
+    <string name="point_spacing">Between the points</string>
+    <string name="hanging_hint">The arrows on the wall count from the top left corner of the calibration</string>
+    <string name="remove_hanging">Remove</string>
     <string name="shadow">Shadow</string>
     <string name="straight_frames">Straight frames</string>
     <string name="without_pictures">The wall without pictures, while held</string>

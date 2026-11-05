@@ -86,6 +86,10 @@ object WallJson {
         .apply {
             p.framePhoto?.let { put("framePhoto", it) }
             p.artPhoto?.let { put("artPhoto", it) }
+            p.hanging?.let { hanging ->
+                put("hangingDrop", hanging.dropCm)
+                hanging.spacingCm?.let { put("hangingSpacing", it) }
+            }
         }
 
     private fun picture(json: JSONObject) = Picture(
@@ -95,6 +99,11 @@ object WallJson {
         frameColor = json.getInt("frameColor"),
         framePhoto = json.optStringOrNull("framePhoto"),
         artPhoto = json.optStringOrNull("artPhoto"),
+        hanging = if (json.has("hangingDrop")) {
+            Hanging(json.getDouble("hangingDrop"), if (json.has("hangingSpacing")) json.getDouble("hangingSpacing") else null)
+        } else {
+            null
+        },
     )
 
     /** The string under [key]; null when there is none — optString would make it "". */

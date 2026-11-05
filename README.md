@@ -26,6 +26,10 @@ The specification is in [docs/SPEC.md](docs/SPEC.md).
     with a guide and the gap in centimetres.
   - Resize: corner handles keep the shape, side handles change one way.
   - Frame colour or photo, stack order, Duplicate for a gallery wall.
+  - Hanging in the pencil menu: how far below the frame's top it rests on its
+    nails, and one nail or two. The selected picture then shows where they go,
+    in whole centimetres from the calibration's top left corner; never in the image
+    saved.
   - Shadow in the ⋮ menu.
   - Straight frames in the ⋮ menu: square to the photo at one scale, not in
     the wall's perspective, for a photo taken about square-on.

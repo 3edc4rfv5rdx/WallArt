@@ -40,6 +40,14 @@ A standalone app with no code shared with PhotoCollage (apart from the shared
   proportions, a side's middle changes that side alone; whole centimetres,
   near a standard size it takes it. The size pill shows only then.
 - "Duplicate" puts a copy to the right, at the gap the picture already has.
+- "Hanging" in the picture's menu: the distance from the frame's top down to
+  where it rests on its nails (a loop on the top rail, or a wire pulled up as
+  it will hang), the moulding's width in whole centimetres at first, one nail
+  or two, and for two the distance between them, half
+  the frame's width at first. The selected picture shows each nail with its
+  place in whole centimetres from the calibration's top left corner, which is ringed.
+  Nothing shows before it is set, or while it no longer fits the frame. Not in
+  the saved image.
 - All pictures live in the wall's flat coordinate system in centimetres and
   are projected onto the photo through the calibration when drawn.
 - Alignment for a gallery wall (by edge, by centre, equal gaps).

@@ -3,6 +3,7 @@
 > N=new feature, E=error fix, F=fine-tune, R=refactor, I=infrastructure
 
 ## Unreleased
+- N: Hanging in the pencil menu takes how far below the frame's top it rests and one point or two, and shows where each nail goes from the calibration's corner
 - N: Holding the button beside Save draft shows the wall without its pictures, for before and after
 - N: Straight frames in the ⋮ menu hang the pictures square to the photo at one scale, not in the wall's perspective
 ## v0.1.29 (2026-11-04)
