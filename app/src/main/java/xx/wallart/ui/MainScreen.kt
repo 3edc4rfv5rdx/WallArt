@@ -7,6 +7,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,6 +34,7 @@ import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Compare
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material3.Button
@@ -136,6 +139,9 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
     // The selected picture's handles out, to size it by: till Back, or the selection goes.
     var sizing by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(state.selected) { sizing = false }
+    // The wall as it is without its pictures, for as long as the button under it is held.
+    val beforeButton = remember { MutableInteractionSource() }
+    val before by beforeButton.collectIsPressedAsState()
     val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) {
             when (pick) {
@@ -206,6 +212,7 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
                         onMoveCrop = vm::moveCrop,
                         onResizePicture = vm::resizePicture,
                         sizing = sizing && state.selected != null,
+                        picturesHidden = before,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -245,8 +252,13 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
                 } else {
                     // Nothing else wants the room: the work is put aside as the draft from here.
                     // Off while the draft holds this very wall: nothing to save.
-                    Button(onClick = vm::saveDraft, enabled = !state.busy && state.hasWork && state.wall != state.draft) {
-                        Text(stringResource(R.string.save_draft))
+                    Row(horizontalArrangement = Arrangement.spacedBy(32.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Button(onClick = vm::saveDraft, enabled = !state.busy && state.hasWork && state.wall != state.draft) {
+                            Text(stringResource(R.string.save_draft))
+                        }
+                        if (state.image != null && state.wall.pictures.isNotEmpty()) {
+                            HoldIconButton(Icons.Filled.Compare, stringResource(R.string.without_pictures), beforeButton)
+                        }
                     }
                 }
             }

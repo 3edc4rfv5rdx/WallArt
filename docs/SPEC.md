@@ -48,6 +48,8 @@ A standalone app with no code shared with PhotoCollage (apart from the shared
   first: the pictures are drawn as rectangles square to the photo, at one
   scale, with no perspective. The calibration still gives the scale (its
   corners' area) and the centre.
+- Before and after: while the button under the wall is held, the wall shows
+  without its pictures. The button is there once a picture is.
 - Add, remove, replace the frame's or the artwork's photo, change the order.
 
 ## Saving

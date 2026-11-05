@@ -5,6 +5,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,6 +34,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -166,6 +168,14 @@ private val LARGE_ICON = 28.dp
 @Composable
 fun LargeIconButton(icon: ImageVector, contentDescription: String, onClick: () -> Unit, enabled: Boolean = true) {
     IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(LARGE_BUTTON)) {
+        Icon(icon, contentDescription, Modifier.size(LARGE_ICON))
+    }
+}
+
+/** A button as large, filled with the accent, that does its work only while held: [interactionSource] says when it is pressed. */
+@Composable
+fun HoldIconButton(icon: ImageVector, contentDescription: String, interactionSource: MutableInteractionSource) {
+    FilledIconButton(onClick = {}, modifier = Modifier.size(LARGE_BUTTON), interactionSource = interactionSource) {
         Icon(icon, contentDescription, Modifier.size(LARGE_ICON))
     }
 }

@@ -99,6 +99,9 @@ private const val GRID_PARTS_WITHOUT_SIZE = 4.0
  * Either way two fingers enlarge and move the view, for a closer look, and
  * while it is enlarged one finger moves it too off the pictures and corners;
  * the saved image is not touched by it. A new photo starts at the whole of it.
+ *
+ * While [picturesHidden] the pictures are not drawn and one finger does
+ * nothing, so none of them moves unseen; a drag under way lets go.
  */
 @Composable
 fun WallCanvas(
@@ -112,6 +115,7 @@ fun WallCanvas(
     onMoveCrop: (Double, Double, Double) -> Unit,
     onResizePicture: (Long, Picture, Int, Pt) -> Unit,
     sizing: Boolean,
+    picturesHidden: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val cm = stringResource(R.string.cm)
@@ -131,6 +135,7 @@ fun WallCanvas(
     val moveCrop by rememberUpdatedState(onMoveCrop)
     val resizePicture by rememberUpdatedState(onResizePicture)
     val isSizing by rememberUpdatedState(sizing)
+    val hidden by rememberUpdatedState(picturesHidden)
     val painter = remember { PicturePainter() }
     var view by remember(image) { mutableStateOf(Zoom()) }
     val zoom = { view }
@@ -140,6 +145,15 @@ fun WallCanvas(
 
     val pinch = Modifier.pointerInput(image) {
         pinch { centroid, pan, factor -> view = view.pinched(viewBox(image, size.toSize(), view), size.toSize(), centroid, pan, factor) }
+    }
+    // After the pinch and ahead of the gestures: consumed here, a touch is no tap and lets a drag go, as a pinch's does.
+    val blocked = Modifier.pointerInput(Unit) {
+        awaitPointerEventScope {
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                if (hidden) event.changes.forEach { it.consume() }
+            }
+        }
     }
     val gestures = if (calibrating != null) {
         Modifier.pointerInput(image) {
@@ -196,6 +210,7 @@ fun WallCanvas(
                 exclude()
             }
             .then(pinch)
+            .then(blocked)
             .then(gestures),
     ) {
         val box = viewBox(image, size, view)
@@ -206,7 +221,7 @@ fun WallCanvas(
         } else {
             state.wall.projection(box.ratio)
         }
-        if (homography != null) {
+        if (homography != null && !picturesHidden) {
             val selected = if (calibrating == null) state.selected else null
             painter.draw(this, state, box, homography, selected, accent)
             if (calibrating == null) {

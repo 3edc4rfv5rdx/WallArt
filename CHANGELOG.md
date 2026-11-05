@@ -3,6 +3,7 @@
 > N=new feature, E=error fix, F=fine-tune, R=refactor, I=infrastructure
 
 ## Unreleased
+- N: Holding the button beside Save draft shows the wall without its pictures, for before and after
 - N: Straight frames in the ⋮ menu hang the pictures square to the photo at one scale, not in the wall's perspective
 ## v0.1.29 (2026-11-04)
 - I: The icon previews are kept out of git
