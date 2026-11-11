@@ -242,7 +242,8 @@ fun WallCanvas(
                         guidePainter.label(this, "${formatCm(o.width)}×${formatCm(o.height)} $cm", top, accent, above = true)
                     }
                 }
-                state.selectedPicture?.nails?.takeIf { it.isNotEmpty() }?.let { nails ->
+                // The nails give way while sizing: their figures would cover the size, and they move with it anyway.
+                state.selectedPicture?.takeIf { !sizing }?.nails?.takeIf { it.isNotEmpty() }?.let { nails ->
                     // What the figures count from.
                     homography.map(Pt(0.0, 0.0))?.let { drawHangingOrigin(box.toScreen(it), accent) }
                     nails.forEachIndexed { index, nail ->
