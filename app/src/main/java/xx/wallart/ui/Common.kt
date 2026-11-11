@@ -10,6 +10,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -305,7 +306,12 @@ fun AccentSwatch(color: Color, selected: Boolean, onClick: () -> Unit) {
 /** A screen filling the window, with a back button and title above whatever [content] puts in its Column — used
  * for every screen the ⋮ menu opens, so they navigate like the rest of the app instead of popping up as a dialog. */
 @Composable
-fun AppScreen(title: String, onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+fun AppScreen(
+    title: String,
+    onBack: () -> Unit,
+    actions: @Composable RowScope.() -> Unit = {},
+    content: @Composable ColumnScope.() -> Unit,
+) {
     BackHandler(onBack = onBack)
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars)) {
         Row(
@@ -316,6 +322,7 @@ fun AppScreen(title: String, onBack: () -> Unit, content: @Composable ColumnScop
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
             }
             Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+            actions()
         }
         content()
     }

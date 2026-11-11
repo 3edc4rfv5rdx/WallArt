@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Compare
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Straighten
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -94,8 +95,14 @@ fun MainScreen(vm: WallViewModel, onExit: () -> Unit, onAbout: () -> Unit) {
         }
     }
     when (screen) {
-        Screen.EDITOR -> EditorScreen(vm, onExit = onExit, onSettings = { screen = Screen.SETTINGS }, onAbout = onAbout)
-        Screen.SETTINGS -> AppScreen(title = stringResource(R.string.settings), onBack = { screen = Screen.EDITOR }) {
+        Screen.EDITOR -> EditorScreen(vm, onExit = onExit, onSettings = { screen = Screen.SETTINGS })
+        Screen.SETTINGS -> AppScreen(
+            title = stringResource(R.string.settings),
+            onBack = { screen = Screen.EDITOR },
+            actions = {
+                LargeIconButton(Icons.Outlined.Info, stringResource(R.string.about), onAbout)
+            },
+        ) {
             SettingsScreen()
         }
     }
@@ -129,7 +136,7 @@ private enum class PictureTool(@param:StringRes val text: Int) {
 
 /** The wall and its pictures under the top bar; the calibration's size and buttons under the wall while one is made. */
 @Composable
-private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -> Unit, onAbout: () -> Unit) {
+private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -> Unit) {
     val state by vm.state.collectAsState()
     val rotation = rememberDeviceRotation()
     // Saveable: the system's picker can outlive the activity.
@@ -196,7 +203,6 @@ private fun EditorScreen(vm: WallViewModel, onExit: () -> Unit, onSettings: () -
             onShadow = vm::toggleShadow,
             onStraight = vm::toggleStraight,
             onSettings = onSettings,
-            onAbout = onAbout,
         )
         Box(Modifier.weight(1f).fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
             val image = state.image
@@ -366,7 +372,6 @@ private fun TopBar(
     onShadow: () -> Unit,
     onStraight: () -> Unit,
     onSettings: () -> Unit,
-    onAbout: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
     var tools by remember { mutableStateOf(false) }
@@ -444,10 +449,6 @@ private fun TopBar(
                 AppMenuItem(stringResource(R.string.settings)) {
                     menu = false
                     onSettings()
-                }
-                AppMenuItem(stringResource(R.string.about)) {
-                    menu = false
-                    onAbout()
                 }
             }
         }

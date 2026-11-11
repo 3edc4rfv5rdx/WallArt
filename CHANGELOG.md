@@ -3,6 +3,7 @@
 > N=new feature, E=error fix, F=fine-tune, R=refactor, I=infrastructure
 
 ## Unreleased
+- F: About opens from an (i) button on the Settings screen, as in the other apps, instead of the ⋮ menu
 - F: The About and update dialogs take the accent picked in Settings instead of a fixed colour
 - F: The nails and their figures give way while Resize is on, no longer covering the size
 ## v0.2.38 (2026-11-05)
