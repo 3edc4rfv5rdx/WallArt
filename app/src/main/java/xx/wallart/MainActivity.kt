@@ -19,8 +19,10 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.drawable.toDrawable
 import dev.about.About
 import dev.about.AboutConfig
+import dev.updater.AboutUpdater
 import dev.updater.Updater
 import dev.updater.UpdaterConfig
+import xx.wallart.ui.accentAt
 import xx.wallart.ui.MainScreen
 import xx.wallart.ui.WallArtTheme
 import xx.wallart.ui.WindowDark
@@ -42,6 +44,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppSettings.load(this)
+        // Before the start-up check, so an update dialog is already in the app's accent.
+        applyDialogAccent()
         // Looks for a newer build in this app's own GitHub release and asks
         // before it downloads anything.
         Updater.checkOnStart(this, UPDATER_CONFIG)
@@ -53,6 +57,8 @@ class MainActivity : ComponentActivity() {
             // The window is outside the composition: a theme changed in
             // Settings is carried out to the bars by hand.
             LaunchedEffect(themeMode) { applyWindowTheme() }
+            // The shared dialogs are outside it too, and read the accent when they open.
+            LaunchedEffect(accentIndex) { applyDialogAccent() }
 
             WallArtTheme(themeMode, accentIndex) {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -86,7 +92,19 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
     }
 
+    /** The accent the About and update dialogs are drawn in: the one picked in Settings. */
+    private fun applyDialogAccent() {
+        About.accent = accentAt(AppSettings.accentIndex.value).toArgb()
+    }
+
     private fun showAbout() {
-        About.show(this, AboutConfig(updater = UPDATER_CONFIG, buildDate = BuildConfig.BUILD_DATE))
+        About.show(
+            this,
+            AboutConfig(
+                repo = UPDATER_CONFIG.repoName,
+                buildDate = BuildConfig.BUILD_DATE,
+                updates = AboutUpdater(UPDATER_CONFIG),
+            ),
+        )
     }
 }
